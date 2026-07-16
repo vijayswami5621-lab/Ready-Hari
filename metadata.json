@@ -1,0 +1,6 @@
+{
+  "name": "Hari Pathshala",
+  "description": "Devotional app with highly accurate Panchang and spiritual guidance.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

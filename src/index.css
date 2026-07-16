@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-saffron: var(--theme-primary, #FF6B00);
+  --color-saffron-light: var(--theme-secondary, #FFA726);
+  --color-saffron-dark: var(--theme-accent, #CC5200);
+  --color-golden: var(--theme-golden, #D4AF37);
+  --color-orange-accent: var(--theme-orange, #FF6B00);
+  --color-brown-dark: var(--theme-text-dark, #2E241B);
+  --color-brown-light: var(--theme-text-light, #786D63);
+  --color-secondary-custom: #FFF7ED;
+  --color-bg-custom: #FFFDF9;
+  --color-card-custom: #FFFFFF;
+  --color-divider-custom: #EFE7DB;
+
+  --font-sans: var(--theme-font-sans, "Plus Jakarta Sans", "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
+  --font-mukta: var(--theme-font-mukta, "Mukta", sans-serif);
+  --font-devanagari: var(--theme-font-devanagari, "Noto Sans Devanagari", sans-serif);
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-white/30 shadow-[0_10px_30px_rgba(255,107,0,0.03)] rounded-[28px];
+  }
+  .glass-card-dark {
+    @apply bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 shadow-lg rounded-[28px];
+  }
+}
+
+html, body {
+  @apply bg-[#FFFDF9] text-[#2E241B] font-sans min-h-full w-full;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  @apply min-h-full w-full flex flex-col bg-[#FFFDF9] dark:bg-slate-950 transition-colors duration-500;
+}
+
+/* Hide scrollbar for clean UI */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

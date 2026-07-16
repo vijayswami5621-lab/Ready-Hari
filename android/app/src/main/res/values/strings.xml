@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hari Pathshala</string>
+    <string name="title_activity_main">Hari Pathshala</string>
+    <string name="package_name">com.haripathshala.app</string>
+    <string name="custom_url_scheme">com.haripathshala.app</string>
+</resources>

@@ -1,0 +1,160 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Public collections (read-only for everyone, write for admins)
+    match /products/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /courses/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /videos/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /categories/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /quotes/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /blogs/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /panchang/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /liveSessions/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /coupons/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    match /settings/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /analytics/{document=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Orders collection (Users can read their own, Admins can do everything)
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // User-specific collections
+    match /downloads/{downloadId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // userStats parent collection and subcollections
+    match /userStats/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAdmin();
+      
+      match /history/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      match /quiz_progress/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      match /quiz_history/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      match /achievements/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      match /certificates/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Quiz collections
+    match /quiz_subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /quiz_quizzes/{quizId} {
+      allow read, write: if true;
+    }
+    
+    match /quiz_questions/{questionId} {
+      allow read, write: if true;
+    }
+
+    match /quiz_ai_cache/{cacheId} {
+      allow read, write: if true;
+    }
+    
+    match /quiz_leaderboard/{entryId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /quiz_global_leaderboard/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /quiz_certificates/{certId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+  }
+}
