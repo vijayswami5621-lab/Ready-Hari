@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { 
   Sparkles, Send, Video, ChevronRight, Play, BookOpen, Book, 
-  ShoppingBag, Star, Users, MessageSquare, Heart, ExternalLink, ArrowRight, Calendar
+  ShoppingBag, Star, Users, MessageSquare, Heart, ExternalLink, ArrowRight, Calendar, Globe
 } from 'lucide-react';
 import { SecureImage } from '../common/SecureImage';
 import { QuotesSlider } from '../QuotesSlider';
@@ -11,6 +11,7 @@ import { DohaSlider } from '../DohaSlider';
 import { getVideoThumbnail } from '../../utils/videoUtils';
 import { QuoteSkeleton, PanchangSkeleton, CategoryListSkeleton, VideoListSkeleton, ProductGridSkeleton } from '../Skeleton';
 import { useRealtimeCollection } from '../../hooks/useRealtimeCollection';
+import { useAppSettings } from '../../contexts/AppSettingsContext';
 
 interface HomeSectionRendererProps {
   section: {
@@ -99,6 +100,7 @@ export const HomeSectionRenderer: React.FC<HomeSectionRendererProps> = ({
   loadingPanchang,
   user
 }) => {
+  const { officialDetails } = useAppSettings();
 
   switch (section.type) {
     // 1. DAILY SUTRA / DIVINE WISDOM
@@ -727,15 +729,20 @@ export const HomeSectionRenderer: React.FC<HomeSectionRendererProps> = ({
             <div className="flex flex-col items-center justify-center">
               <div className="w-16 h-16 rounded-full bg-white dark:bg-slate-850 p-2.5 mb-4 shadow-md border border-orange-100/50 dark:border-slate-800 relative group overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-tr from-saffron/20 to-amber-100/20 scale-0 group-hover:scale-100 transition-transform duration-500 rounded-full" />
-                <img src="/logo.png" alt="Hari Pathshala Logo" className="w-full h-full object-contain relative z-10" />
+                <img src={officialDetails?.logo || "/logo.png"} alt={`${officialDetails?.organizationName || "Hari Pathshala"} Logo`} className="w-full h-full object-contain relative z-10" />
               </div>
               
               <h3 className="font-devanagari font-extrabold text-2xl text-brown-dark dark:text-white tracking-wide">
-                हरि पाठशाला
+                {officialDetails?.organizationName || "हरि पाठशाला"}
               </h3>
               <p className="text-xs text-brown-light/80 dark:text-slate-400 mt-2 font-mukta max-w-xs px-4 leading-relaxed italic">
-                "Spiritual Education & Authentic Hindu Scriptures. Connecting modern souls to their divine roots."
+                {officialDetails?.founderMessage || "Spiritual Education & Authentic Hindu Scriptures. Connecting modern souls to their divine roots."}
               </p>
+              {officialDetails?.tagline && (
+                <p className="text-[10px] uppercase tracking-wider text-saffron font-bold mt-1.5">
+                  {officialDetails.tagline}
+                </p>
+              )}
             </div>
             
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-8 px-4 text-xs font-bold text-brown-light/70 dark:text-slate-400">
@@ -750,17 +757,24 @@ export const HomeSectionRenderer: React.FC<HomeSectionRendererProps> = ({
               <Link to="/info/refunds" className="hover:text-saffron">Refunds</Link>
             </div>
 
-            <div className="flex justify-center gap-4.5 mt-8">
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-brown-light/80 dark:text-slate-400 hover:text-saffron hover:shadow-md transition-all">
-                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="18" width="18" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-              </a>
+            <div className="flex justify-center gap-4 mt-8">
+              {officialDetails?.instagram && (
+                <a href={officialDetails.instagram} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-brown-light/80 dark:text-slate-400 hover:text-saffron hover:shadow-md transition-all">
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="18" width="18" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                </a>
+              )}
+              {officialDetails?.website && (
+                <a href={officialDetails.website} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-brown-light/80 dark:text-slate-400 hover:text-saffron hover:shadow-md transition-all">
+                  <Globe size={18} />
+                </a>
+              )}
               <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-brown-light/80 dark:text-slate-400 hover:text-red-500 hover:shadow-md transition-all">
                 <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" height="20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418 c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768 C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.86-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15V9l5.2,3L10,15z"></path></svg>
               </a>
             </div>
 
             <p className="text-[9px] text-brown-light/40 dark:text-slate-500 mt-6 px-4">
-              &copy; {new Date().getFullYear()} Hari Pathshala. Handcrafted with devotion 🙏
+              &copy; {new Date().getFullYear()} {officialDetails?.organizationName || "Hari Pathshala"}. Handcrafted with devotion 🙏
             </p>
           </motion.footer>
         </React.Fragment>

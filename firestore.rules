@@ -72,6 +72,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    match /app_settings/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     
     match /analytics/{document=**} {
       allow read: if isAdmin();

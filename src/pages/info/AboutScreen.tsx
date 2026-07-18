@@ -11,15 +11,17 @@ import { useGoBack } from "../../hooks/useGoBack";
 export const AboutScreen = () => {
   const navigate = useNavigate();
   const goBack = useGoBack();
-  const { settings } = useAppSettings();
+  const { settings, officialDetails } = useAppSettings();
   const { data: pages, loading } = useRealtimeCollection<any>("pages");
   const aboutPage = pages?.find((p) => p.id === "about" || p.slug === "about");
+
+  const displayLogo = officialDetails?.logo || settings?.appLogo || "/logo.png";
 
   return (
     <div className="min-h-screen bg-orange-50 dark:bg-slate-900 transition-colors">
       <SEO
-        title={(aboutPage?.title || "About Us") + " | Hari Pathshala"}
-        description="Learn about the mission and vision of Hari Pathshala."
+        title={(aboutPage?.title || "About Us") + " | " + (officialDetails?.organizationName || "Hari Pathshala")}
+        description={`Learn about the mission and vision of ${officialDetails?.organizationName || "Hari Pathshala"}.`}
       />
 
       <header className="pt-12 pb-6 px-6 bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-20 flex items-center">
@@ -37,10 +39,10 @@ export const AboutScreen = () => {
       <div className="p-6 space-y-8 pb-20">
         <div className="text-center flex flex-col items-center">
           <div className="w-24 h-24 aspect-square bg-white rounded-full mx-auto mb-4 flex items-center justify-center p-2 shadow-md overflow-hidden shrink-0">
-            {settings?.appLogo ? (
+            {displayLogo ? (
               <SecureImage
-                src={settings.appLogo}
-                alt="Hari Pathshala"
+                src={displayLogo}
+                alt={officialDetails?.organizationName || "Hari Pathshala"}
                 imageClassName="object-contain"
                 className="w-full h-full"
               />
@@ -49,10 +51,10 @@ export const AboutScreen = () => {
             )}
           </div>
           <h2 className="text-2xl font-bold font-devanagari text-brown-dark dark:text-white mb-2">
-            हरि पाठशाला
+            {officialDetails?.organizationName || "हरि पाठशाला"}
           </h2>
           <p className="text-brown-light dark:text-slate-400 font-mukta">
-            Your Gateway to Spiritual Enlightenment
+            {officialDetails?.tagline || "Your Gateway to Spiritual Enlightenment"}
           </p>
         </div>
 
@@ -139,6 +141,34 @@ export const AboutScreen = () => {
                 Sadhana (spiritual practice).
               </p>
             </section>
+
+            {officialDetails && (
+              <section className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-850 dark:to-slate-800 p-6 rounded-2xl shadow-md border border-orange-100 dark:border-slate-750">
+                <h3 className="text-xs font-black uppercase tracking-wider text-saffron mb-4">
+                  Message from our Founder
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="w-20 h-20 aspect-square rounded-full bg-white border border-orange-100 dark:border-slate-700 overflow-hidden shrink-0 shadow-md">
+                    <SecureImage
+                      src={officialDetails.founderPhoto || "/founder.png"}
+                      alt={officialDetails.founderName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="text-center sm:text-left flex-1">
+                    <h4 className="font-bold text-brown-dark dark:text-white text-base">
+                      {officialDetails.founderName}
+                    </h4>
+                    <p className="text-xs text-saffron font-semibold mb-2">
+                      {officialDetails.founderDesignation}
+                    </p>
+                    <p className="text-sm text-brown-light dark:text-slate-300 italic font-mukta">
+                      "{officialDetails.founderMessage}"
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>

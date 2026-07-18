@@ -37,6 +37,15 @@ interface AppSettings {
   splashBackground: string;
   appVersion: string;
   appTagline: string;
+  founderName: string;
+  founderDesignation: string;
+  organizationName: string;
+  tagline: string;
+  founderMessage: string;
+  website: string;
+  instagram: string;
+  logo: string;
+  founderPhoto: string;
   themeColors: {
     primary: string;
     secondary: string;
@@ -100,12 +109,37 @@ interface NavigationItem {
   type: 'bottom' | 'drawer' | 'profile' | 'quick_action' | 'floating';
 }
 
+export interface OfficialDetails {
+  founderName: string;
+  founderDesignation: string;
+  organizationName: string;
+  tagline: string;
+  founderMessage: string;
+  website: string;
+  instagram: string;
+  logo: string;
+  founderPhoto: string;
+}
+
+export const defaultOfficialDetails: OfficialDetails = {
+  founderName: "Ajay Swami (Amar Das)",
+  founderDesignation: "Founder & CEO",
+  organizationName: "Hari Pathshala",
+  tagline: "ज्ञान • भक्ति • संस्कार",
+  founderMessage: "Hari Pathshala is dedicated to making the timeless wisdom of Sanatan Dharma accessible through modern technology while preserving the authenticity of our sacred scriptures.",
+  website: "https://haripathshala.online",
+  instagram: "https://www.instagram.com/hari_pathshala?igsh=MXMxZG5kd3h6aTRpdQ==",
+  logo: "/logo.png",
+  founderPhoto: "/founder.png",
+};
+
 interface AppSettingsContextType {
   settings: AppSettings | null;
   homepageSections: HomepageSection[];
   navigationItems: NavigationItem[];
   paymentSettings: PaymentSettings;
   shippingSettings: ShippingSettings;
+  officialDetails: OfficialDetails;
   loading: boolean;
 }
 
@@ -150,6 +184,15 @@ const defaultSettings: AppSettings = {
   splashBackground: '',
   appVersion: '1.0.0',
   appTagline: 'Your Spiritual Journey Begins Here',
+  founderName: 'Ajay Swami (Amar Das)',
+  founderDesignation: 'Founder & CEO',
+  organizationName: 'Hari Pathshala',
+  tagline: 'ज्ञान • भक्ति • संस्कार',
+  founderMessage: '"Hari Pathshala is dedicated to making the timeless wisdom of Sanatan Dharma accessible through modern technology while preserving the authenticity of our sacred scriptures."',
+  website: 'https://haripathshala.online',
+  instagram: 'https://www.instagram.com/hari_pathshala?igsh=MXMxZG5kd3h6aTRpdQ==',
+  logo: '/logo.png',
+  founderPhoto: 'https://images.unsplash.com/photo-1590073844006-33379778ae09?auto=format&fit=crop&w=800&q=80',
   themeColors: {
     primary: '#FF9933',
     secondary: '#FFB366',
@@ -217,6 +260,7 @@ const AppSettingsContext = createContext<AppSettingsContextType>({
   navigationItems: [],
   paymentSettings: getFallbackPaymentSettings(),
   shippingSettings: getFallbackShippingSettings(),
+  officialDetails: defaultOfficialDetails,
   loading: true,
 });
 
@@ -226,6 +270,7 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const { data: dbNavigation, loading: loadingNavigation } = useRealtimeCollection<NavigationItem>('navigation');
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [officialDetails, setOfficialDetails] = useState<OfficialDetails>(defaultOfficialDetails);
   const [homepageSections, setHomepageSections] = useState<HomepageSection[]>(defaultHomepageSections);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(getFallbackPaymentSettings());
@@ -290,8 +335,9 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   useEffect(() => {
     if (dbSettings && dbSettings.length > 0) {
-      const globalConfig = dbSettings.find((s: any) => s.id === 'global_config') || dbSettings[0];
-      if (globalConfig) {
+      // Find the config document (MUST NOT be official_details)
+      const globalConfig = dbSettings.find((s: any) => s.id === 'global_config' || s.id === 'app_config') || dbSettings.find((s: any) => s.id !== 'official_details') || dbSettings[0];
+      if (globalConfig && globalConfig.id !== 'official_details') {
         setSettings((prev) => ({
           ...prev,
           ...globalConfig,
@@ -302,6 +348,22 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
           features: { ...prev.features, ...globalConfig.features },
           shareConfig: globalConfig.shareConfig ? { ...prev.shareConfig, ...globalConfig.shareConfig } : prev.shareConfig,
         }));
+      }
+
+      // Find the official_details document
+      const officialDoc = dbSettings.find((s: any) => s.id === 'official_details');
+      if (officialDoc) {
+        setOfficialDetails({
+          founderName: officialDoc.founderName || defaultOfficialDetails.founderName,
+          founderDesignation: officialDoc.founderDesignation || defaultOfficialDetails.founderDesignation,
+          organizationName: officialDoc.organizationName || defaultOfficialDetails.organizationName,
+          tagline: officialDoc.tagline || defaultOfficialDetails.tagline,
+          founderMessage: officialDoc.founderMessage || defaultOfficialDetails.founderMessage,
+          website: officialDoc.website || defaultOfficialDetails.website,
+          instagram: officialDoc.instagram || defaultOfficialDetails.instagram,
+          logo: officialDoc.logo || defaultOfficialDetails.logo,
+          founderPhoto: officialDoc.founderPhoto || defaultOfficialDetails.founderPhoto,
+        });
       }
     }
   }, [dbSettings]);
@@ -368,6 +430,7 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         navigationItems,
         paymentSettings,
         shippingSettings,
+        officialDetails,
         loading: loadingSettings || loadingHomepage || loadingNavigation || loadingPayment || loadingShipping,
       }}
     >

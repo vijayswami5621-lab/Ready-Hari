@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -11,6 +11,9 @@ import {
   Shield,
   Smartphone,
   Settings as SettingsIcon,
+  Info,
+  X,
+  Save,
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -24,7 +27,8 @@ import { useGoBack } from "../../hooks/useGoBack";
 export const SettingsScreen = () => {
   const navigate = useNavigate();
   const goBack = useGoBack();
-  const { settings } = useAppSettings();
+  const { settings, officialDetails } = useAppSettings();
+
   const {
     isDarkMode,
     toggleDarkMode,
@@ -234,16 +238,13 @@ export const SettingsScreen = () => {
               </button>
             }
           />
-        </SettingsSection>
-
-        <SettingsSection title="Administration">
           <SettingsItem
-            icon={SettingsIcon}
-            title="Admin API Dashboard"
-            subtitle="Configure microservices and key rotations"
-            onClick={() => navigate("/profile/admin-services")}
+            icon={Info}
+            title={`About ${officialDetails.organizationName}`}
+            subtitle={`${officialDetails.organizationName} - ${officialDetails.tagline}`}
+            onClick={() => navigate("/profile/about")}
             rightElement={
-              <span className="text-xs text-saffron font-bold">Configure</span>
+              <span className="text-xs text-saffron font-bold">View</span>
             }
           />
         </SettingsSection>

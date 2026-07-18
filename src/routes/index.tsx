@@ -67,6 +67,7 @@ import { CommunityVoiceScreen } from '../pages/community/CommunityVoiceScreen';
 import { AdhyayanScreen } from '../pages/adhyayan/AdhyayanScreen';
 import { CategoryDetailsScreen } from '../pages/adhyayan/CategoryDetailsScreen';
 import { VideoPlayerScreen } from '../pages/adhyayan/VideoPlayerScreen';
+import { ScriptureReaderScreen } from '../pages/adhyayan/ScriptureReaderScreen';
 import { AIGuruScreen } from '../pages/aiguru/AIGuruScreen';
 import { LoginScreen } from '../pages/auth/LoginScreen';
 import { StoreScreen } from '../pages/store/StoreScreen';
@@ -78,7 +79,6 @@ import { ProfileScreen } from '../pages/profile/ProfileScreen';
 import { SettingsScreen } from '../pages/profile/SettingsScreen';
 import { EditProfileScreen } from '../pages/profile/EditProfileScreen';
 import { NotificationsScreen } from '../pages/profile/NotificationsScreen';
-import { AdminServicesScreen } from '../pages/profile/AdminServicesScreen';
 
 // New Pages
 import { AboutScreen } from '../pages/info/AboutScreen';
@@ -202,7 +202,6 @@ const router = createBrowserRouter([
     ],
   },
   { path: '/profile/settings', element: <ProtectedRoute><SettingsScreen /></ProtectedRoute> },
-  { path: '/profile/admin-services', element: <ProtectedRoute><AdminServicesScreen /></ProtectedRoute> },
   { path: '/profile/edit', element: <ProtectedRoute><EditProfileScreen /></ProtectedRoute> },
   { path: '/profile/notifications', element: <ProtectedRoute><NotificationsScreen /></ProtectedRoute> },
   { path: '/profile/about', element: <ProtectedRoute><AboutScreen /></ProtectedRoute> },
@@ -222,6 +221,7 @@ const router = createBrowserRouter([
   { path: '/adhyayan/category/:id', element: <ProtectedRoute><CategoryDetailsScreen /></ProtectedRoute> },
   { path: '/adhyayan/video/:id', element: <ProtectedRoute><VideoPlayerScreen /></ProtectedRoute> },
   { path: '/adhyayan/pdf/:id', element: <ProtectedRoute><PDFViewerScreen /></ProtectedRoute> },
+  { path: '/adhyayan/scripture/:id', element: <ProtectedRoute><ScriptureReaderScreen /></ProtectedRoute> },
   { path: '/store/product/:id', element: <ProtectedRoute><ProductDetailsScreen /></ProtectedRoute> },
   { path: '/store/cart', element: <ProtectedRoute><CartScreen /></ProtectedRoute> },
   { path: '/store/checkout', element: <ProtectedRoute><CheckoutScreen /></ProtectedRoute> },

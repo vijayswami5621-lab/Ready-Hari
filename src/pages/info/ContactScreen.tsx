@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Mail, Phone, MapPin, Send, Clock, Globe, HelpCircle, Package, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Mail, Phone, MapPin, Send, Clock, Globe, HelpCircle, Package, AlertCircle, Instagram } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { SEO } from '../../components/SEO';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useAppSettings } from '../../contexts/AppSettingsContext';
 
 export const ContactScreen = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { settings, officialDetails } = useAppSettings();
   const goBack = () => navigate(-1);
   const [formData, setFormData] = useState({
     name: user?.displayName || "",
@@ -72,8 +74,8 @@ export const ContactScreen = () => {
 
       <div className="p-6 space-y-8 max-w-3xl mx-auto">
         <div className="flex flex-col items-center text-center space-y-4 pt-4">
-          <img src="/logo.png" alt="Hari Pathshala Logo" className="w-24 h-24 object-contain drop-shadow-md rounded-full bg-white p-1 border-2 border-white" />
-          <h2 className="text-2xl font-bold text-brown-dark dark:text-white">Hari Pathshala Support</h2>
+          <img src={officialDetails?.logo || "/logo.png"} alt={`${officialDetails?.organizationName || "Hari Pathshala"} Logo`} className="w-24 h-24 object-contain drop-shadow-md rounded-full bg-white p-1 border-2 border-white" />
+          <h2 className="text-2xl font-bold text-brown-dark dark:text-white">{officialDetails?.organizationName || "Hari Pathshala"} Support</h2>
           <p className="text-sm text-brown-light dark:text-slate-400 max-w-md">
             We are here to assist you with orders, spiritual guidance, and technical help. Average Response Time: 2-4 Hours.
           </p>
@@ -87,7 +89,9 @@ export const ContactScreen = () => {
                <Globe className="text-saffron-dark shrink-0" size={18} />
                <div>
                  <p className="text-brown-light dark:text-slate-400 text-xs">Website</p>
-                 <p className="font-medium text-brown-dark dark:text-white">www.haripathshala.online</p>
+                 <a href={officialDetails?.website || "https://haripathshala.online"} target="_blank" rel="noopener noreferrer" className="font-medium text-saffron hover:underline break-all">
+                   {officialDetails?.website ? officialDetails.website.replace("https://", "").replace("http://", "") : "haripathshala.online"}
+                 </a>
                </div>
              </div>
              <div className="flex items-center gap-3">
@@ -119,10 +123,12 @@ export const ContactScreen = () => {
                </div>
              </div>
              <div className="flex items-center gap-3">
-               <div className="w-5 flex justify-center text-saffron-dark shrink-0"><span className="font-bold">IG</span></div>
+               <Instagram className="text-saffron-dark shrink-0" size={18} />
                <div>
                  <p className="text-brown-light dark:text-slate-400 text-xs">Instagram</p>
-                 <p className="font-medium text-brown-dark dark:text-white">@haripathshala</p>
+                 <a href={officialDetails?.instagram || "https://www.instagram.com/hari_pathshala"} target="_blank" rel="noopener noreferrer" className="font-medium text-saffron hover:underline break-all">
+                   {officialDetails?.instagram ? "@" + officialDetails.instagram.split('/').pop()?.split('?')[0] : "@hari_pathshala"}
+                 </a>
                </div>
              </div>
              <div className="flex items-center gap-3">

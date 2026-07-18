@@ -2,16 +2,70 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Hari Pathshala</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Hari Pathshala - Spiritual Education & Store</title>
+    <meta name="description" content="Hari Pathshala offers premium spiritual education, online courses on Bhagavad Gita, and a dedicated store for authentic Puja Samagri and idols." />
+    <meta name="keywords" content="Spiritual Education, Hinduism, Bhagavad Gita courses, Ramcharitmanas, Puja Samagri, Idols, Satsang, Live Katha" />
+    
+    <meta property="og:title" content="Hari Pathshala - Spiritual Education" />
+    <meta property="og:description" content="Discover inner peace with premium spiritual courses and authentic Puja items." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://haripathshala.com" />
+    
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Hari Pathshala" />
+    <meta name="twitter:description" content="Discover inner peace with premium spiritual courses and authentic Puja items." />
+
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#FF6B00" />
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "Hari Pathshala",
+      "url": "https://haripathshala.com",
+      "description": "Spiritual Education & Store",
+      "sameAs": [
+        "https://youtube.com/c/HariPathshala",
+        "https://facebook.com/HariPathshala"
+      ]
+    }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/assets/index-Bea1rF7E.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Cs_JYOYV.css">
-  </head>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
+    <script>
+      try {
+        const storeStr = localStorage.getItem('hari-pathshala-app-store');
+        if (storeStr) {
+          const store = JSON.parse(storeStr);
+          if (store.state && store.state.isDarkMode) {
+            document.documentElement.classList.add('dark');
+          }
+        }
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/index-inV438F5.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-pnKv-rA5.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body>
-    <div id="root"></div>
+    <script>
+      if (typeof exports === 'undefined') {
+        var exports = {};
+      }
+    </script>
+    <div id="root">
+      <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #FF9933 0%, #FF6B00 100%); display: flex; align-items: center; justify-content: center; z-index: 99999;">
+        <img src="/logo.png" alt="Hari Pathshala" style="width: 150px; height: 150px; object-fit: contain; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2)); background-color: white; border-radius: 50%; padding: 10px;" />
+        <style>
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+          }
+        </style>
+      </div>
+    </div>
   </body>
 </html>
 

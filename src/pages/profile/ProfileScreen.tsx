@@ -66,7 +66,7 @@ export const ProfileScreen = () => {
   const navigate = useNavigate();
   const { user, userData, logout } = useAuthStore();
   const { shareContent } = useShareContent();
-  const { navigationItems, settings } = useAppSettings();
+  const { navigationItems, settings, officialDetails } = useAppSettings();
 
   const userName = user?.displayName || userData?.name || "Bhakt";
   const userEmail = user?.email || "bhakt@example.com";
@@ -295,7 +295,7 @@ export const ProfileScreen = () => {
       items: [
         {
           icon: Info,
-          label: "About Hari Pathshala",
+          label: `About ${officialDetails?.organizationName || "Hari Pathshala"}`,
           path: "/profile/about",
           color: "text-saffron",
           featureKey: "about",

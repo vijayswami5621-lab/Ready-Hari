@@ -89,8 +89,8 @@ export const fallbackQuizzes: FallbackQuiz[] = [
     coverImage: 'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&w=800&q=80',
     type: 'timed',
     timeLimit: 120,
-    questionsCount: 4,
-    points: 40,
+    questionsCount: 5,
+    points: 50,
     isPublished: true,
     isTodayQuiz: true
   },
@@ -102,8 +102,8 @@ export const fallbackQuizzes: FallbackQuiz[] = [
     coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
     type: 'practice',
     timeLimit: 180,
-    questionsCount: 3,
-    points: 30,
+    questionsCount: 5,
+    points: 50,
     isPublished: true,
     isTodayQuiz: false
   },
@@ -115,8 +115,34 @@ export const fallbackQuizzes: FallbackQuiz[] = [
     coverImage: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=800&q=80',
     type: 'daily',
     timeLimit: 120,
-    questionsCount: 4,
-    points: 40,
+    questionsCount: 9,
+    points: 90,
+    isPublished: true,
+    isTodayQuiz: false
+  },
+  {
+    id: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    name: 'Bala Kanda Leela (बालकाण्ड और राम जन्म)',
+    description: 'प्रभु श्रीराम के प्राकट्य, बाल स्वरूप, विश्वामित्र यज्ञ रक्षा और सीता स्वयंवर प्रसंग की अद्भुत लीला।',
+    coverImage: 'https://images.unsplash.com/photo-1590073844006-33379778ae09?auto=format&fit=crop&w=800&q=80',
+    type: 'chapter',
+    timeLimit: 150,
+    questionsCount: 6,
+    points: 60,
+    isPublished: true,
+    isTodayQuiz: false
+  },
+  {
+    id: 'hindu_festivals_intro',
+    subjectId: 'hindu_dharma',
+    name: 'Sanatan Festivals and Calendar (त्योहारों का वैज्ञानिक महत्व)',
+    description: 'होली, दीवाली, महाशिवरात्रि जैसे पावन उत्सवों और हिन्दू पंचांग का मौलिक परिचय।',
+    coverImage: 'https://images.unsplash.com/photo-1608958416719-792f44053351?auto=format&fit=crop&w=800&q=80',
+    type: 'mixed',
+    timeLimit: 90,
+    questionsCount: 5,
+    points: 50,
     isPublished: true,
     isTodayQuiz: false
   }
@@ -124,97 +150,536 @@ export const fallbackQuizzes: FallbackQuiz[] = [
 
 export const fallbackQuestions: FallbackQuestion[] = [
   {
-    id: 'q_gita_1',
+    id: 'q_gita_new_1',
     quizId: 'gita_core_knowledge',
     subjectId: 'bhagavad_gita',
-    text: 'भगवद्गीता के द्वितीय अध्याय में भगवान श्रीकृष्ण ने अर्जुन को सर्वप्रथम कौन सा उपदेश दिया?',
+    text: 'भगवद्गीता के प्रथम अध्याय का नाम क्या है जिसमें अर्जुन के मानसिक संघर्ष और विषाद का वर्णन है?',
     type: 'mcq',
     options: [
-      'आत्मा की अमरता का उपदेश (सांख्य योग)',
-      'कर्मकांड की विधियों का ज्ञान',
-      'कुरुक्षेत्र से भाग जाने की सलाह',
-      'केवल पूजा-अर्चना करने का आदेश'
+      'अर्जुनविषादयोग (Arjuna Visada Yoga)',
+      'सांख्ययोग (Sankhya Yoga)',
+      'कर्मयोग (Karma Yoga)',
+      'भक्तियोग (Bhakti Yoga)'
     ],
-    correctAnswer: 'आत्मा की अमरता का उपदेश (सांख्य योग)',
-    explanation: 'भगवान श्रीकृष्ण ने अर्जुन के विषाद को दूर करने के लिए सर्वप्रथम आत्मा की नित्यता और शरीर की अनित्यता का ज्ञान दिया, जिसे सांख्य योग कहा जाता है।',
+    correctAnswer: 'अर्जुनविषादयोग (Arjuna Visada Yoga)',
+    explanation: 'भगवद्गीता के पहले अध्याय का नाम अर्जुनविषादयोग है, जिसमें कुरुक्षेत्र के मैदान में अपनों को देखकर अर्जुन के मन में उत्पन्न हुए विषाद और संशय का सजीव चित्रण है।',
     scriptureRef: 'Bhagavad Gita',
-    chapter: '2',
-    verse: '11-30'
+    chapter: '1',
+    verse: '1-47'
   },
   {
-    id: 'q_gita_2',
+    id: 'q_gita_new_2',
     quizId: 'gita_core_knowledge',
     subjectId: 'bhagavad_gita',
-    text: 'भगवद्गीता के अनुसार, क्या आत्मा (Atma) कभी नष्ट हो सकती है या मारी जा सकती है?',
-    type: 'true_false',
-    options: ['सही (True)', 'गलत (False)'],
-    correctAnswer: 'सही (True)',
-    explanation: 'अध्याय 2, श्लोक 20 के अनुसार, आत्मा न कभी जन्म लेती है और न कभी मरती है; यह अजन्मा, नित्य, सनातन और पुरातन है।',
+    text: 'श्रीमद्भगवद्गीता में अर्जुन के सारथी के रूप में भगवान श्रीकृष्ण के रथ के ऊपर किस महाप्रतापी देव का ध्वज सुशोभित था?',
+    type: 'mcq',
+    options: [
+      'कपिराज श्री हनुमान जी (Hanuman)',
+      'गरुड़ देव (Garuda)',
+      'देवराज इंद्र (Indra)',
+      'सूर्य देव (Surya)'
+    ],
+    correctAnswer: 'कपिराज श्री हनुमान जी (Hanuman)',
+    explanation: 'महाभारत युद्ध में अर्जुन के रथ के ध्वज पर स्वयं पवनपुत्र हनुमान जी विराजमान थे, इसलिए अर्जुन के रथ को "कपिध्वज" भी कहा जाता है।',
     scriptureRef: 'Bhagavad Gita',
-    chapter: '2',
+    chapter: '1',
     verse: '20'
   },
   {
-    id: 'q_gita_3',
+    id: 'q_gita_new_3',
     quizId: 'gita_core_knowledge',
     subjectId: 'bhagavad_gita',
-    text: 'श्रीकृष्ण ने कर्म करने के संदर्भ में कौन सा अत्यंत प्रसिद्ध उपदेश दिया है?',
+    text: 'गीता के द्वितीय अध्याय के अनुसार, जैसे मनुष्य पुराने वस्त्रों को त्यागकर नए वस्त्र धारण करता है, वैसे ही जीवात्मा किसे त्यागकर नया शरीर धारण करती है?',
     type: 'mcq',
     options: [
-      'कर्म ही मत करो, सब भाग्य पर छोड़ दो',
-      'कर्म पर ही तुम्हारा अधिकार है, उसके फल पर कभी नहीं',
-      'फल की पहले चिंता करो, फिर कर्म करो',
-      'कर्म केवल स्वार्थ के लिए करो'
+      'जीर्ण-शीर्ण शरीर को (Worn-out body)',
+      'सांसारिक सुखों को',
+      'ज्ञान और बुद्धि को',
+      'कर्मों के फलों को'
     ],
-    correctAnswer: 'कर्म पर ही तुम्हारा अधिकार है, उसके फल पर कभी नहीं',
-    explanation: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन श्लोक में भगवान ने स्पष्ट किया है कि मनुष्य का कर्तव्य केवल कर्म करना है, फल की लालसा रखना नहीं।',
+    correctAnswer: 'जीर्ण-शीर्ण शरीर को (Worn-out body)',
+    explanation: 'अध्याय २, श्लोक २२ में कहा गया है: "वासांसि जीर्णानि यथा विहाय नवानि गृह्णाति नरोऽपराणि। तथा शरीराणि विहाय जीर्णान्यन्यानि संयाति नवानि देही॥"',
     scriptureRef: 'Bhagavad Gita',
     chapter: '2',
-    verse: '47'
+    verse: '22'
   },
   {
-    id: 'q_gita_4',
+    id: 'q_gita_new_4',
     quizId: 'gita_core_knowledge',
     subjectId: 'bhagavad_gita',
-    text: 'गीता में "स्थिरप्रज्ञ" (Stithaprajna) किसे कहा गया है?',
+    text: 'भगवद्गीता के तृतीय अध्याय "कर्मयोग" के अनुसार, कौन सा कर्म श्रेष्ठ और बंधनमुक्त करने वाला माना गया है?',
     type: 'mcq',
     options: [
-      'जो बहुत अधिक धनवान हो',
-      'जिसकी बुद्धि सुख और दुःख दोनों में अविचलित (समान) रहती है',
-      'जो सदैव युद्ध के लिए तत्पर रहे',
-      'जो सांसारिक कर्तव्यों का सर्वथा त्याग कर दे'
+      'निष्काम भाव से लोकसंग्रह हेतु किया गया कर्म',
+      'फल की तीव्र लालसा से किया गया कर्म',
+      'बिना सोचे-समझे किया गया अकर्म',
+      'केवल अपने स्वार्थ की सिद्धि के लिए किया गया कर्म'
     ],
-    correctAnswer: 'जिसकी बुद्धि सुख और दुःख दोनों में अविचलित (समान) रहती है',
-    explanation: 'जो राग, भय, और क्रोध से सर्वथा मुक्त है, और जिसका मन सुख-दुःख में स्थिर रहता है, उसे ही स्थिरप्रज्ञ कहा गया है।',
+    correctAnswer: 'निष्काम भाव से लोकसंग्रह हेतु किया गया कर्म',
+    explanation: 'भगवान श्रीकृष्ण के अनुसार बिना फल की आसक्ति के लोक कल्याण और ईश्वर अर्पण बुद्धि से किया गया निष्काम कर्म ही मनुष्य को बंधनों से मुक्त करता है।',
     scriptureRef: 'Bhagavad Gita',
-    chapter: '2',
-    verse: '56'
+    chapter: '3',
+    verse: '19'
   },
   {
-    id: 'q_hc_1',
-    quizId: 'hanuman_chalisa_basic',
-    subjectId: 'hanuman_chalisa',
-    text: 'प्रसिद्ध हनुमान चालीसा की रचना किनके द्वारा की गई थी?',
+    id: 'q_gita_new_5',
+    quizId: 'gita_core_knowledge',
+    subjectId: 'bhagavad_gita',
+    text: 'गीता के अनुसार, काम (वासना), क्रोध और लोभ को किसका द्वार बताया गया है जो आत्मा का पतन करते हैं?',
     type: 'mcq',
-    options: ['गोस्वामी तुलसीदास जी', 'संत कबीरदास जी', 'वेदव्यास जी', 'वाल्मीकि जी'],
-    correctAnswer: 'गोस्वामी तुलसीदास जी',
-    explanation: 'हनुमान चालीसा की रचना महान भक्त और कवि गोस्वामी तुलसीदास जी द्वारा 16वीं शताब्दी में की गई थी।',
+    options: [
+      'नरक का द्वार (Gateways to Hell)',
+      'स्वर्ग का द्वार',
+      'मोक्ष का मार्ग',
+      'ज्ञान का मार्ग'
+    ],
+    correctAnswer: 'नरक का द्वार (Gateways to Hell)',
+    explanation: 'अध्याय १६, श्लोक २१ के अनुसार, काम, क्रोध और लोभ - ये तीन प्रकार के नरक के द्वार हैं जो जीवात्मा का नाश (अधोगति) करने वाले हैं।',
+    scriptureRef: 'Bhagavad Gita',
+    chapter: '16',
+    verse: '21'
+  },
+  {
+    id: 'q_gita_new_6',
+    quizId: 'gita_avatar_intro',
+    subjectId: 'bhagavad_gita',
+    text: 'भगवान श्रीकृष्ण ने भगवद्गीता के किस अध्याय में अपना अत्यंत अद्भुत और दिव्य "विश्वरूप" अर्जुन को प्रदर्शित किया था?',
+    type: 'mcq',
+    options: [
+      'अध्याय ११ (Chapter 11)',
+      'अध्याय २ (Chapter 2)',
+      'अध्याय १८ (Chapter 18)',
+      'अध्याय ९ (Chapter 9)'
+    ],
+    correctAnswer: 'अध्याय ११ (Chapter 11)',
+    explanation: 'अध्याय ११ में "विश्वरूपदर्शनयोग" के अंतर्गत संजय और अर्जुन भगवान श्रीकृष्ण के कोटि सूर्य समप्रभ विराट विश्वरूप का साक्षात दर्शन करते हैं।',
+    scriptureRef: 'Bhagavad Gita',
+    chapter: '11',
+    verse: '1-55'
+  },
+  {
+    id: 'q_gita_new_7',
+    quizId: 'gita_avatar_intro',
+    subjectId: 'bhagavad_gita',
+    text: 'गीता के चतुर्थ अध्याय के अनुसार, दिव्य ज्ञान को प्राप्त करने का सर्वोत्तम उपाय भगवान ने क्या बताया है?',
+    type: 'mcq',
+    options: [
+      'श्रद्धा, तत्परता और इंद्रिय संयम द्वारा (Faith & Self-control)',
+      'अत्यधिक धन के दान द्वारा',
+      'कठिन शारीरिक तपस्या द्वारा',
+      'शास्त्रों के केवल रटने मात्र से'
+    ],
+    correctAnswer: 'श्रद्धा, तत्परता और इंद्रिय संयम द्वारा (Faith & Self-control)',
+    explanation: 'भगवान कहते हैं: "श्रद्धावांल्लभते ज्ञानं तत्परः संयतेन्द्रियः।" अर्थात जितेंद्रिय, साधनपरायण और श्रद्धालु मनुष्य ही परम ज्ञान को प्राप्त करता है।',
+    scriptureRef: 'Bhagavad Gita',
+    chapter: '4',
+    verse: '39'
+  },
+  {
+    id: 'q_gita_new_8',
+    quizId: 'gita_avatar_intro',
+    subjectId: 'bhagavad_gita',
+    text: 'गीता के अनुसार, समस्त विद्याओं में सबसे गुप्त और पवित्र "राजविद्या" किस योग को कहा गया है?',
+    type: 'mcq',
+    options: [
+      'राजविद्याराजगुह्ययोग (अध्याय ९)',
+      'सांख्ययोग (अध्याय २)',
+      'विभूतियोग (अध्याय १०)',
+      'गुणत्रयविभागयोग (अध्याय १४)'
+    ],
+    correctAnswer: 'राजविद्याराजगुह्ययोग (अध्याय ९)',
+    explanation: 'नौवें अध्याय को परम पवित्र, अविनाशी, प्रत्यक्ष फलदायक और सब विद्याओं का राजा "राजविद्या राजगुह्य योग" कहा गया है।',
+    scriptureRef: 'Bhagavad Gita',
+    chapter: '9',
+    verse: '2'
+  },
+  {
+    id: 'q_gita_new_9',
+    quizId: 'gita_avatar_intro',
+    subjectId: 'bhagavad_gita',
+    text: 'भगवान श्रीकृष्ण के अनुसार, प्रकृति के वे तीन गुण कौन से हैं जो अविनाशी जीवात्मा को शरीर में बांधते हैं?',
+    type: 'mcq',
+    options: [
+      'सत्त्व, रज और तम (Sattva, Rajas, Tamas)',
+      'धर्म, अर्थ और काम',
+      'मन, बुद्धि और अहंकार',
+      'प्राण, अपान और व्यान'
+    ],
+    correctAnswer: 'सत्त्व, रज और तम (Sattva, Rajas, Tamas)',
+    explanation: 'अध्याय १४, श्लोक ५ के अनुसार, सत्त्वगुण, रजोगुण और तमोगुण - ये प्रकृति से उत्पन्न तीनों गुण इस देह में अविनाशी जीवात्मा को बांधते हैं।',
+    scriptureRef: 'Bhagavad Gita',
+    chapter: '14',
+    verse: '5'
+  },
+  {
+    id: 'q_gita_new_10',
+    quizId: 'gita_avatar_intro',
+    subjectId: 'bhagavad_gita',
+    text: 'गीता के अठारहवें अध्याय के अंत में संजय ने किस परम कल्याणकारी श्लोक के साथ संवाद का उपसंहार किया है?',
+    type: 'mcq',
+    options: [
+      'यत्र योगेश्वरः कृष्णो यत्र पार्थो धनुर्धरः...',
+      'सर्वधर्मान्परित्यज्य मामेकं...',
+      'कर्मण्येवाधिकारस्ते मा फलेषु...',
+      'यदा यदा हि धर्मस्य ग्लानिर्भवति...'
+    ],
+    correctAnswer: 'यत्र योगेश्वरः कृष्णो यत्र पार्थो धनुर्धरः...',
+    explanation: 'अध्याय १८, श्लोक ७८ (अंतिम श्लोक): "यत्र योगेश्वरः कृष्णो यत्र पार्थो धनुर्धरः। तत्र श्रीर्विजयो भूतिर्ध्रुवा नीतिर्मतिर्मम॥" जहाँ कृष्ण और अर्जुन हैं, वहाँ विजय और नीति निश्चित है।',
+    scriptureRef: 'Bhagavad Gita',
+    chapter: '18',
+    verse: '78'
+  },
+  {
+    id: 'q_rc_new_1',
+    quizId: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    text: 'श्रीरामचरितमानस के अनुसार, बालकाण्ड के मंगलाचरण में गोस्वामी तुलसीदास जी ने सर्वप्रथम किनकी वंदना की है?',
+    type: 'mcq',
+    options: [
+      'वाणी और विनायक (सरस्वती जी और गणेश जी)',
+      'प्रभु श्रीराम और माता सीता',
+      'महादेव शिव और माता पार्वती',
+      'पवनपुत्र हनुमान जी'
+    ],
+    correctAnswer: 'वाणी और विनायक (सरस्वती जी और गणेश जी)',
+    explanation: 'बालकाण्ड का प्रथम श्लोक है: "वर्णानामर्थसंघानां रसानां छंदसामपि। मंगलानां च कर्त्तारौ वन्दे वाणीविनायकौ॥" यहाँ सरस्वती जी और गणेश जी की वंदना सर्वप्रथम है।',
     scriptureRef: 'Ramcharitmanas',
-    chapter: 'प्रस्तावना',
-    verse: '1'
+    chapter: 'बालकाण्ड',
+    verse: 'श्लोक १'
   },
   {
-    id: 'q_hc_2',
+    id: 'q_rc_new_2',
+    quizId: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    text: 'मर्यादा पुरुषोत्तम श्रीराम के वनवास काल में भरत जी ने उनके वापस न लौटने पर अयोध्या का शासन किस प्रकार चलाया था?',
+    type: 'mcq',
+    options: [
+      'श्रीराम की चरण पादुकाओं को सिंहासन पर रखकर सेवक के रूप में',
+      'स्वयं को अयोध्या का महाराजा घोषित करके',
+      'शत्रुघ्न के साथ मिलकर संयुक्त रूप से',
+      'मंत्रिपरिषद की पूर्ण अधीनता में रहकर'
+    ],
+    correctAnswer: 'श्रीराम की चरण पादुकाओं को सिंहासन पर रखकर सेवक के रूप में',
+    explanation: 'भरत जी ने चित्रकूट से श्रीराम की चरण पादुकाएं (खड़ाऊँ) लाकर उन्हें सिंहासन पर विराजमान किया और स्वयं नंदीग्राम में तपस्वी की भाँति रहकर १४ वर्ष राज-काज संभाला।',
+    scriptureRef: 'Ramcharitmanas',
+    chapter: 'अयोध्याकाण्ड',
+    verse: '३२३-३२५'
+  },
+  {
+    id: 'q_rc_new_3',
+    quizId: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    text: 'अरण्यकाण्ड के अनुसार, प्रभु श्रीराम ने किस परम शबरी भक्त की कुटिया में जाकर उसके भक्तिभाव से अर्पित किए कंदमूल फल ग्रहण किए थे?',
+    type: 'mcq',
+    options: [
+      'भीलनी शबरी (Shabari)',
+      'अहल्या (Ahalya)',
+      'अनुसूया (Anasuya)',
+      'मंथरा (Manthara)'
+    ],
+    correctAnswer: 'भीलनी शबरी (Shabari)',
+    explanation: 'शबरी ने भक्ति की पराकाष्ठा दिखाते हुए चख-चख कर केवल मीठे बेर प्रभु श्रीराम और लक्ष्मण जी को अर्पित किए, जिसे भगवान ने परम आदर सहित ग्रहण किया।',
+    scriptureRef: 'Ramcharitmanas',
+    chapter: 'अरण्यकाण्ड',
+    verse: '३४-३६'
+  },
+  {
+    id: 'q_rc_new_4',
+    quizId: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    text: 'किष्किन्धाकाण्ड में श्रीराम और सुग्रीव के मध्य अटूट मित्रता स्थापित करवाने में किस महान भक्त की मुख्य भूमिका थी?',
+    type: 'mcq',
+    options: [
+      'श्री हनुमान जी (Hanuman)',
+      'नल-नील (Nal-Neel)',
+      'जाम्बवन्त (Jambavan)',
+      'अंगद (Angad)'
+    ],
+    correctAnswer: 'श्री हनुमान जी (Hanuman)',
+    explanation: 'ऋष्यमूक पर्वत पर हनुमान जी ने विप्र का रूप धरकर श्रीराम-लक्ष्मण से भेंट की और सुग्रीव की परिस्थिति बताकर दोनों के बीच अग्नि को साक्षी मानकर अटूट मित्रता करवाई।',
+    scriptureRef: 'Ramcharitmanas',
+    chapter: 'किष्किन्धाकाण्ड',
+    verse: '१-४'
+  },
+  {
+    id: 'q_rc_new_5',
+    quizId: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    text: 'लंकाकाण्ड में लक्ष्मण जी के मूर्छित होने पर लंका के किस प्रसिद्ध वैद्य को विभीषण की सलाह पर ससम्मान अयोध्या लाया गया था?',
+    type: 'mcq',
+    options: [
+      'वैद्य सुषेण (Sushena)',
+      'वैद्य चरक',
+      'अश्विनी कुमार',
+      'वैद्य धन्वन्तरि'
+    ],
+    correctAnswer: 'वैद्य सुषेण (Sushena)',
+    explanation: 'हनुमान जी लंका से सुषेण वैद्य के घर को ही उठा लाए थे। सुषेण ने लक्ष्मण जी की नाड़ी देखकर द्रोणागिरी पर्वत से संजीवनी बूटी लाने का उपाय बताया था।',
+    scriptureRef: 'Ramcharitmanas',
+    chapter: 'लंकाकाण्ड',
+    verse: '५३-५५'
+  },
+  {
+    id: 'q_rc_new_6',
+    quizId: 'ram_bal_kand',
+    subjectId: 'ramcharitmanas',
+    text: 'श्रीरामचरितमानस के अंतिम सोपान "उत्तरकाण्ड" में मुख्यतः किन दो महान चरित्रों के मध्य ज्ञान, भक्ति और कौतुक का संवाद वर्णित है?',
+    type: 'mcq',
+    options: [
+      'कागभुशुण्डि और गरुड़ जी (Kagbhusundi & Garuda)',
+      'याज्ञवल्क्य और भारद्वाज',
+      'शिव जी और माता पार्वती',
+      'तुलसीदास और संत समाज'
+    ],
+    correctAnswer: 'कागभुशुण्डि और गरुड़ जी (Kagbhusundi & Garuda)',
+    explanation: 'उत्तरकाण्ड में काकभुशुण्डि जी ने गरुड़ जी के संशयों को दूर करने के लिए उन्हें रामकथा सुनाई और ज्ञान-भक्ति के रहस्यमयी अंतर को अत्यंत सरल रूप में स्पष्ट किया।',
+    scriptureRef: 'Ramcharitmanas',
+    chapter: 'उत्तरकाण्ड',
+    verse: '५६-१२०'
+  },
+  {
+    id: 'q_hc_new_1',
     quizId: 'hanuman_chalisa_basic',
     subjectId: 'hanuman_chalisa',
-    text: 'हनुमान जी को समस्त "अष्ट सिद्धि और नवनिधि" के दाता होने का वरदान किसने दिया था?',
+    text: 'हनुमान चालीसा के मंगलाचरण के अनुसार, मन के दर्पण को स्वच्छ करने के लिए गुरु के किन पावन तत्वों की धूलि ग्रहण की जाती है?',
     type: 'mcq',
-    options: ['माता जानकी (सीता जी)', 'प्रभु श्रीराम', 'भगवान शिव', 'देवराज इन्द्र'],
-    correctAnswer: 'माता जानकी (सीता जी)',
-    explanation: '"अष्ट सिद्धि नव निधि के दाता। अस बर दीन्ह जानकी माता।" जानकी माता (सीता जी) ने प्रसन्न होकर हनुमान जी को यह अनुपम वरदान दिया था।',
+    options: [
+      'श्री गुरु चरण सरोज रज (Dust of Guru\'s Lotus Feet)',
+      'गंगा जल का जल कण',
+      'चंदन की पावन धूलि',
+      'यज्ञवेदी की पवित्र भस्म'
+    ],
+    correctAnswer: 'श्री गुरु चरण सरोज रज (Dust of Guru\'s Lotus Feet)',
+    explanation: 'हनुमान चालीसा का पहला दोहा है: "श्रीगुरु चरन सरोज रज निज मनु मुकुरु सुधारि।" अर्थात श्री गुरुदेव के चरण कमलों की धूलि से अपने मन रूपी दर्पण को पवित्र करके...',
+    scriptureRef: 'Hanuman Chalisa',
+    chapter: 'मंगलाचरण',
+    verse: 'दोहा १'
+  },
+  {
+    id: 'q_hc_new_2',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'hanuman_chalisa',
+    text: '"राम दुआरे तुम रखवारे। होत न आज्ञा बिनु पैसारे॥" इस चौपाई का आध्यात्मिक रहस्य क्या है?',
+    type: 'mcq',
+    options: [
+      'प्रभु श्रीराम की कृपा प्राप्ति के लिए हनुमान जी का आश्रय आवश्यक है',
+      'अयोध्या के मुख्य द्वार पर हनुमान जी पहरा देते थे',
+      'यमराज बिना हनुमान जी की अनुमति के नहीं आ सकते',
+      'राम दरबार में केवल वानर सेना ही जा सकती थी'
+    ],
+    correctAnswer: 'प्रभु श्रीराम की कृपा प्राप्ति के लिए हनुमान जी का आश्रय आवश्यक है',
+    explanation: 'हनुमान जी प्रभु श्रीराम के हृदय के रक्षक हैं। उनकी आज्ञा या कृपा के बिना कोई भी भक्त श्रीराम के परम पद (शरण) को प्राप्त नहीं कर सकता।',
     scriptureRef: 'Hanuman Chalisa',
     chapter: 'चौपाई',
-    verse: '31'
+    verse: '२१'
+  },
+  {
+    id: 'q_hc_new_3',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'hanuman_chalisa',
+    text: 'हनुमान जी के कानों में सुंदर कुंडल और सिर पर घुँघराले बालों की अनुपम शोभा का वर्णन चालीसा की किस चौपाई में मिलता है?',
+    type: 'mcq',
+    options: [
+      'कंचन बरन बिराज सुबेसा। कानन कुंडल कुंचित केसा॥',
+      'हाथ बज्र औ ध्वजा बिराजै। काँधे मूँज जनेऊ साजै॥',
+      'शंकर सुवन केसरी नंदन। तेज प्रताप महा जग बंदन॥',
+      'बिद्यावान गुनी अति चातुर। राम काज करिबे को आतुर॥'
+    ],
+    correctAnswer: 'कंचन बरन बिराज सुबेसा। कानन कुंडल कुंचित केसा॥',
+    explanation: 'हनुमान जी स्वर्ण के समान कांतिमान वर्ण वाले हैं, कानों में सुंदर कुंडल धारण किए हुए हैं और उनके सिर के बाल घुँघराले (कुंचित) हैं।',
+    scriptureRef: 'Hanuman Chalisa',
+    chapter: 'चौपाई',
+    verse: '५'
+  },
+  {
+    id: 'q_hc_new_4',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'hanuman_chalisa',
+    text: '"सब पर राम तपस्वी राजा। तिन के काज सकल तुम साजा॥" इस चौपाई के अनुसार तपस्वी राजा श्रीराम के सभी कार्यों को किसने सिद्ध किया?',
+    type: 'mcq',
+    options: [
+      'वीर हनुमान जी ने (Hanuman)',
+      'महाराज सुग्रीव ने',
+      'लंकापति विभीषण ने',
+      'ऋषि वशिष्ठ ने'
+    ],
+    correctAnswer: 'वीर हनुमान जी ने (Hanuman)',
+    explanation: 'प्रभु श्रीराम सभी तपस्वियों के राजा हैं और उनके कठिन से कठिन कार्यों को भी वीर हनुमान जी ने अत्यंत सहज भाव से पूर्ण किया।',
+    scriptureRef: 'Hanuman Chalisa',
+    chapter: 'चौपाई',
+    verse: '२७'
+  },
+  {
+    id: 'q_sk_new_1',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'sunderkand',
+    text: 'सुन्दरकाण्ड के प्रारंभ में हनुमान जी जब विशाल समुद्र लांघ रहे थे, तब देवों ने उनकी बुद्धि की परीक्षा के लिए किस सर्पमाता को भेजा था?',
+    type: 'mcq',
+    options: [
+      'सुरसा (Surasa)',
+      'सिंहिका (Sinhika)',
+      'कद्रू (Kadru)',
+      'त्रिजटा (Trijata)'
+    ],
+    correctAnswer: 'सुरसा (Surasa)',
+    explanation: 'सुरसा ने हनुमान जी का मार्ग रोककर उन्हें ग्रास बनाने की चेष्टा की। हनुमान जी ने अपनी बुद्धि के बल पर लघु रूप धरकर उसके मुख में प्रवेश कर बाहर आकर उसे संतुष्ट किया।',
+    scriptureRef: 'Sunderkand',
+    chapter: 'दोहा २-४'
+  },
+  {
+    id: 'q_sk_new_2',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'sunderkand',
+    text: 'लंका में माता सीता की खोज करते समय हनुमान जी को लंका के किस महल के ऊपर "हरि मंदिर" अंकित दिखाई दिया था जहाँ तुलसी का पौधा भी सुशोभित था?',
+    type: 'mcq',
+    options: [
+      'विभीषण का भवन (Vibhishana\'s Palace)',
+      'रावण का मुख्य महल',
+      'अशोक वाटिका की कुटिया',
+      'कुम्भकर्ण का शयनकक्ष'
+    ],
+    correctAnswer: 'विभीषण का भवन (Vibhishana\'s Palace)',
+    explanation: 'हनुमान जी ने देखा: "रामायुध अंकित गृह सोभा बरनि न जाइ। नव तुलसी का बृन्द तहँ देखि हरष कपिराइ॥" विभीषण का गृह राम-नाम से सुशोभित था।',
+    scriptureRef: 'Sunderkand',
+    chapter: 'दोहा ५'
+  },
+  {
+    id: 'q_sk_new_3',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'sunderkand',
+    text: 'अशोक वाटिका में जब रावण माता सीता को डरा रहा था, तब किस राक्षसी ने सीता जी को सांत्वना दी और अपना शुभ स्वप्न सुनाया था?',
+    type: 'mcq',
+    options: [
+      'त्रिजटा (Trijata)',
+      'शूर्पणखा (Surpanakha)',
+      'ताड़का (Tadaka)',
+      'मंदोदरी (Mandodari)'
+    ],
+    correctAnswer: 'त्रिजटा (Trijata)',
+    explanation: 'त्रिजटा एक विवेकशील राक्षसी थी, जिसने स्वप्न में लंका दहन और श्रीराम की विजय देखी थी। उसने राक्षसियों को सीता जी की शरण में जाने की सलाह दी।',
+    scriptureRef: 'Sunderkand',
+    chapter: 'दोहा ११-१२'
+  },
+  {
+    id: 'q_sk_new_4',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'sunderkand',
+    text: 'सुन्दरकाण्ड के अनुसार, हनुमान जी ने अशोक वाटिका का विध्वंस करते हुए रावण के किस प्रतापी कनिष्ठ पुत्र का वध किया था?',
+    type: 'mcq',
+    options: [
+      'अक्षय कुमार (Akshaya Kumar)',
+      'मेघनाद (Meghnad)',
+      'अतिकाय (Atikaya)',
+      'त्रिशिरा (Trishira)'
+    ],
+    correctAnswer: 'अक्षय कुमार (Akshaya Kumar)',
+    explanation: 'रावण ने हनुमान जी को पकड़ने के लिए अपने छोटे पुत्र अक्षय कुमार को भेजा, जिसे हनुमान जी ने वृक्ष की मार से युद्धभूमि में मार गिराया।',
+    scriptureRef: 'Sunderkand',
+    chapter: 'दोहा १७-१८'
+  },
+  {
+    id: 'q_sk_new_5',
+    quizId: 'hanuman_chalisa_basic',
+    subjectId: 'sunderkand',
+    text: 'लंका दहन के पश्चात जब हनुमान जी समुद्र पार कर वापस लौटे, तब उन्होंने सीता माता द्वारा दी गई किस अमूल्य निशानी को प्रभु श्रीराम के हाथों में सौंपा था?',
+    type: 'mcq',
+    options: [
+      'चूड़ामणि (Chudamani)',
+      'स्वर्ण कंगन (Golden Bangle)',
+      'दिव्य माला (Divine Garland)',
+      'रत्नजड़ित अंगूठी (Ring)'
+    ],
+    correctAnswer: 'चूड़ामणि (Chudamani)',
+    explanation: 'सीता जी ने हनुमान जी को अपने सिर की अमूल्य आभूषण "चूड़ामणि" देकर विदा किया था। इसे देखकर प्रभु श्रीराम भावुक हो गए थे।',
+    scriptureRef: 'Sunderkand',
+    chapter: 'दोहा ३१-३२'
+  },
+  {
+    id: 'q_sp_new_1',
+    quizId: 'hindu_festivals_intro',
+    subjectId: 'shiv_puran',
+    text: 'शिव पुराण के अनुसार, भगवान शिव की आराधना में प्रयुक्त होने वाले किस पावन मनके को साक्षात रुद्र के आंसुओं से उत्पन्न माना गया है?',
+    type: 'mcq',
+    options: [
+      'रुद्राक्ष (Rudraksha)',
+      'तुलसी माला (Tulsi)',
+      'स्फटिक (Sphatik)',
+      'कमलगट्टा (Kamalgatta)'
+    ],
+    correctAnswer: 'रुद्राक्ष (Rudraksha)',
+    explanation: 'शिव पुराण के अनुसार, कल्याण के लिए वर्षों की समाधि के बाद जब शिव जी ने नेत्र खोले, तो उनके आंसुओं की बूंदें पृथ्वी पर गिरीं जिनसे रुद्राक्ष के वृक्ष उत्पन्न हुए।',
+    scriptureRef: 'Shiva Purana',
+    chapter: 'विद्येश्वर संहिता',
+    verse: 'अध्याय २५'
+  },
+  {
+    id: 'q_sp_new_2',
+    quizId: 'hindu_festivals_intro',
+    subjectId: 'shiv_puran',
+    text: 'शिवजी के परम पावन १२ ज्योतिर्लिंगों में से सर्वप्रथम और परम पूजनीय ज्योतिर्लिंग भारत के किस राज्य के तट पर स्थित है?',
+    type: 'mcq',
+    options: [
+      'सोमनाथ - गुजरात (Somnath - Gujarat)',
+      'काशी विश्वनाथ - उत्तर प्रदेश',
+      'केदारनाथ - उत्तराखंड',
+      'महाकालेश्वर - मध्य प्रदेश'
+    ],
+    correctAnswer: 'सोमनाथ - गुजरात (Somnath - Gujarat)',
+    explanation: 'द्वादश ज्योतिर्लिंगों में "सोमनाथ" सर्वप्रथम ज्योतिर्लिंग है जो गुजरात के सौराष्ट्र क्षेत्र के समुद्र तट पर विराजमान है।',
+    scriptureRef: 'Shiva Purana',
+    chapter: 'कोटिरुद्र संहिता',
+    verse: 'अध्याय १४'
+  },
+  {
+    id: 'q_ds_new_1',
+    quizId: 'hindu_festivals_intro',
+    subjectId: 'durga_saptashati',
+    text: 'दुर्गा सप्तशती के अनुसार, माँ आदिशक्ति जगदम्बा ने देवताओं के कष्ट दूर करने के लिए किस महाभयानक महिष-असुर का मर्दन किया था?',
+    type: 'mcq',
+    options: [
+      'महिषासुर (Mahishasura)',
+      'रक्तबीज (Raktabija)',
+      'मधु-कैटभ (Madhu-Kaitabha)',
+      'शुम्भ-निशुम्भ'
+    ],
+    correctAnswer: 'महिषासुर (Mahishasura)',
+    explanation: 'दुर्गा सप्तशती के मध्यम चरित्र में देवी ने महिषासुर (भैंसे के रूप वाले असुर) का संहार कर चराचर जगत को उसके आतंक से मुक्त किया था, जिससे वे "महिषासुरमर्दिनी" कहलाईं।',
+    scriptureRef: 'Durga Saptashati',
+    chapter: 'अध्याय ३'
+  },
+  {
+    id: 'q_ds_new_2',
+    quizId: 'hindu_festivals_intro',
+    subjectId: 'durga_saptashati',
+    text: 'दुर्गा सप्तशती के उत्तर चरित्र के अनुसार, किस असुर की रक्त की प्रत्येक बूंद के भूमि पर गिरने से नया असुर उत्पन्न हो जाता था, जिसका चामुण्डा देवी ने संहार किया?',
+    type: 'mcq',
+    options: [
+      'रक्तबीज (Raktabija)',
+      'चण्ड-मुण्ड (Chanda-Munda)',
+      'धूम्रलोचन (Dhumralochana)',
+      'निशुम्भ (Nishumbha)'
+    ],
+    correctAnswer: 'रक्तबीज (Raktabija)',
+    explanation: 'रक्तबीज को यह वरदान था। माँ काली ने उसका रक्त भूमि पर गिरने से पहले अपने खप्पर में भर लिया और उसे पी लिया, जिससे उसका सर्वनाश संभव हुआ।',
+    scriptureRef: 'Durga Saptashati',
+    chapter: 'अध्याय ८'
+  },
+  {
+    id: 'q_gk_new_1',
+    quizId: 'hindu_festivals_intro',
+    subjectId: 'indian_culture',
+    text: 'सनातन धर्म के चार महान पुरुषार्थ कौन से हैं जो जीवन के चार चरम लक्ष्यों को अभिव्यक्त करते हैं?',
+    type: 'mcq',
+    options: [
+      'धर्म, अर्थ, काम और मोक्ष (Dharma, Artha, Kama, Moksha)',
+      'सत्य, अहिंसा, तप और शौच',
+      'ब्रह्मचर्य, गृहस्थ, वानप्रस्थ और संन्यास',
+      'ऋग्वेद, यजुर्वेद, सामवेद और अथर्ववेद'
+    ],
+    correctAnswer: 'धर्म, अर्थ, काम और मोक्ष (Dharma, Artha, Kama, Moksha)',
+    explanation: 'मानव जीवन के सर्वांगीण विकास के लिए चार पुरुषार्थों की व्यवस्था की गई है: धर्म (कर्तव्य), अर्थ (साधन), काम (इच्छाएं) और मोक्ष (परम मुक्ति)।',
+    scriptureRef: 'General Spiritual Knowledge',
+    chapter: 'जीवन मूल्य'
   }
 ];
 
@@ -351,6 +816,18 @@ export const fallbackAppSettings = [
     shareAppMessage: 'Join me on Hari Pathshala App to read divine scriptures and play spiritual quizzes!',
     playStoreUrl: 'https://haripathshala.online',
     appStoreUrl: 'https://haripathshala.online'
+  },
+  {
+    id: 'official_details',
+    founderName: "Ajay Swami (Amar Das)",
+    founderDesignation: "Founder & CEO",
+    organizationName: "Hari Pathshala",
+    tagline: "ज्ञान • भक्ति • संस्कार",
+    founderMessage: "Hari Pathshala is dedicated to making the timeless wisdom of Sanatan Dharma accessible through modern technology while preserving the authenticity of our sacred scriptures.",
+    website: "https://haripathshala.online",
+    instagram: "https://www.instagram.com/hari_pathshala?igsh=MXMxZG5kd3h6aTRpdQ==",
+    logo: "/logo.png",
+    founderPhoto: "/founder.png"
   }
 ];
 
