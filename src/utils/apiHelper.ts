@@ -1,5 +1,16 @@
+export const getApiUrl = (url: string): string => {
+  if (url.startsWith('/api/')) {
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    if (baseUrl) {
+      return `${baseUrl.replace(/\/$/, '')}${url}`;
+    }
+  }
+  return url;
+};
+
 export const fetchApi = async (url: string, options?: RequestInit) => {
-  const response = await fetch(url, options);
+  const finalUrl = getApiUrl(url);
+  const response = await fetch(finalUrl, options);
   const responseClone = response.clone();
   
   let data;

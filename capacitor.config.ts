@@ -16,6 +16,14 @@ const config: CapacitorConfig = {
       androidScaleType: "CENTER_CROP",
       showSpinner: true,
       spinnerColor: "#ffffff"
+    },
+    Keyboard: {
+      resize: "body",
+      resizeOnFullScreen: true
+    },
+    StatusBar: {
+      backgroundColor: "#FF9933",
+      overlaysWebView: false
     }
   }
 };

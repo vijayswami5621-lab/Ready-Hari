@@ -257,22 +257,6 @@ function reportServiceSuccess(serviceId, key, latency) {
     addApiLog(serviceId, key, "success", latency);
   }
 }
-function reportServiceError(serviceId, key, error) {
-  const service = apiServices[serviceId];
-  if (!service) return;
-  service.errorsCount++;
-  const errorMsg = error?.message || String(error);
-  service.lastErrorMsg = errorMsg;
-  addApiLog(serviceId, key, "failed", 0, errorMsg);
-  const keyInfo = service.keys.find((k) => k.key === key);
-  if (keyInfo) {
-    keyInfo.errorCount++;
-    if (keyInfo.errorCount >= 2) {
-      keyInfo.status = "cooldown";
-      service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
-    }
-  }
-}
 var selfHealingLogs = [];
 setInterval(() => {
   try {
@@ -910,19 +894,866 @@ function getFallbackQuestions(subjectId, chapterId, language) {
       ref: "Sundarkand"
     }
   ];
+  const mahabharataTemplates = [
+    {
+      textHindi: "\u092E\u0939\u093E\u092D\u093E\u0930\u0924 \u0915\u0947 \u0930\u091A\u092F\u093F\u0924\u093E \u0915\u094C\u0928 \u0939\u0948\u0902?",
+      textEnglish: "Who is the composer of Mahabharata?",
+      optionsHindi: ["\u092E\u0939\u0930\u094D\u0937\u093F \u0935\u0947\u0926\u0935\u094D\u092F\u093E\u0938", "\u092E\u0939\u0930\u094D\u0937\u093F \u0935\u093E\u0932\u094D\u092E\u0940\u0915\u093F", "\u0938\u0902\u0924 \u0924\u0941\u0932\u0938\u0940\u0926\u093E\u0938", "\u0915\u093E\u0932\u0940\u0926\u093E\u0938"],
+      optionsEnglish: ["Sage Vedavyasa", "Sage Valmiki", "Saint Tulsidas", "Kalidasa"],
+      correctHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u0935\u0947\u0926\u0935\u094D\u092F\u093E\u0938",
+      correctEnglish: "Sage Vedavyasa",
+      explanationHindi: "\u092E\u0939\u093E\u092D\u093E\u0930\u0924 \u092E\u0939\u093E\u0915\u093E\u0935\u094D\u092F \u0915\u0940 \u0930\u091A\u0928\u093E \u092E\u0939\u0930\u094D\u0937\u093F \u0915\u0943\u0937\u094D\u0923\u0926\u094D\u0935\u0948\u092A\u093E\u092F\u0928 \u0935\u0947\u0926\u0935\u094D\u092F\u093E\u0938 \u091C\u0940 \u0928\u0947 \u0915\u0940 \u0925\u0940\u0964",
+      explanationEnglish: "The Mahabharata was composed by Sage Krishna Dwaipayana Vedavyasa.",
+      ref: "Mahabharata"
+    },
+    {
+      textHindi: "\u092E\u0939\u093E\u092D\u093E\u0930\u0924 \u092E\u0947\u0902 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u092A\u0930\u094D\u0935 (\u0905\u0927\u094D\u092F\u093E\u092F \u0938\u092E\u0942\u0939) \u0939\u0948\u0902?",
+      textEnglish: "How many Parvas (books/chapters) are there in Mahabharata?",
+      optionsHindi: ["18 \u092A\u0930\u094D\u0935", "12 \u092A\u0930\u094D\u0935", "10 \u092A\u0930\u094D\u0935", "24 \u092A\u0930\u094D\u0935"],
+      optionsEnglish: ["18 Parvas", "12 Parvas", "10 Parvas", "24 Parvas"],
+      correctHindi: "18 \u092A\u0930\u094D\u0935",
+      correctEnglish: "18 Parvas",
+      explanationHindi: "\u092E\u0939\u093E\u092D\u093E\u0930\u0924 \u092E\u0947\u0902 \u0915\u0941\u0932 18 \u092A\u0930\u094D\u0935 \u0939\u0948\u0902, \u091C\u0948\u0938\u0947 \u0906\u0926\u093F \u092A\u0930\u094D\u0935, \u0938\u092D\u093E \u092A\u0930\u094D\u0935, \u092D\u0940\u0937\u094D\u092E \u092A\u0930\u094D\u0935 \u0906\u0926\u093F\u0964",
+      explanationEnglish: "The Mahabharata is divided into 18 Parvas (books), including Adi Parva, Sabha Parva, Bhishma Parva, etc.",
+      ref: "Mahabharata"
+    },
+    {
+      textHindi: "\u092D\u0940\u0937\u094D\u092E \u092A\u093F\u0924\u093E\u092E\u0939 \u0915\u093E \u0935\u093E\u0938\u094D\u0924\u0935\u093F\u0915/\u092E\u0942\u0932 \u0928\u093E\u092E \u0915\u094D\u092F\u093E \u0925\u093E?",
+      textEnglish: "What was the original birth name of Bhishma Pitamah?",
+      optionsHindi: ["\u0926\u0947\u0935\u0935\u094D\u0930\u0924", "\u0915\u0930\u094D\u0923", "\u0936\u093E\u0928\u094D\u0924\u0928\u0941", "\u091A\u093F\u0924\u094D\u0930\u093E\u0902\u0917\u0926"],
+      optionsEnglish: ["Devavrata", "Karna", "Shantanu", "Chitrangada"],
+      correctHindi: "\u0926\u0947\u0935\u0935\u094D\u0930\u0924",
+      correctEnglish: "Devavrata",
+      explanationHindi: "\u092D\u0940\u0937\u094D\u092E \u092A\u093F\u0924\u093E\u092E\u0939 \u0930\u093E\u091C\u093E \u0936\u093E\u0928\u094D\u0924\u0928\u0941 \u0914\u0930 \u0926\u0947\u0935\u0940 \u0917\u0902\u0917\u093E \u0915\u0947 \u092A\u0941\u0924\u094D\u0930 \u0925\u0947, \u091C\u093F\u0928\u0915\u093E \u092E\u0942\u0932 \u0928\u093E\u092E \u0926\u0947\u0935\u0935\u094D\u0930\u0924 \u0925\u093E\u0964",
+      explanationEnglish: "Bhishma's original name was Devavrata, the son of King Shantanu and Goddess Ganga.",
+      ref: "Mahabharata"
+    },
+    {
+      textHindi: "\u092F\u0941\u0927\u093F\u0937\u094D\u0920\u093F\u0930, \u092D\u0940\u092E \u0914\u0930 \u0905\u0930\u094D\u091C\u0941\u0928 \u0915\u0940 \u092E\u093E\u0924\u093E \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0925\u093E?",
+      textEnglish: "What was the name of the mother of Yudhishthira, Bhima, and Arjuna?",
+      optionsHindi: ["\u0915\u0941\u0902\u0924\u0940", "\u092E\u093E\u0926\u094D\u0930\u0940", "\u0917\u093E\u0902\u0927\u093E\u0930\u0940", "\u0938\u0924\u094D\u092F\u0935\u0924\u0940"],
+      optionsEnglish: ["Kunti", "Madri", "Gandhari", "Satyavati"],
+      correctHindi: "\u0915\u0941\u0902\u0924\u0940",
+      correctEnglish: "Kunti",
+      explanationHindi: "\u092E\u0939\u093E\u0930\u093E\u091C \u092A\u093E\u0923\u094D\u0921\u0941 \u0915\u0940 \u091C\u094D\u092F\u0947\u0937\u094D\u0920 \u092A\u0924\u094D\u0928\u0940 \u0915\u0941\u0902\u0924\u0940 \u0928\u0947 \u0927\u0930\u094D\u092E\u0930\u093E\u091C, \u092A\u0935\u0928 \u0926\u0947\u0935 \u0914\u0930 \u0907\u0902\u0926\u094D\u0930 \u0915\u0947 \u0905\u0902\u0936 \u0938\u0947 \u092F\u0941\u0927\u093F\u0937\u094D\u0920\u093F\u0930, \u092D\u0940\u092E \u0914\u0930 \u0905\u0930\u094D\u091C\u0941\u0928 \u0915\u094B \u091C\u0928\u094D\u092E \u0926\u093F\u092F\u093E \u0925\u093E\u0964",
+      explanationEnglish: "Kunti was the senior queen of King Pandu who gave birth to Yudhishthira, Bhima, and Arjuna.",
+      ref: "Mahabharata"
+    },
+    {
+      textHindi: "\u092E\u0939\u093E\u092D\u093E\u0930\u0924 \u092F\u0941\u0926\u094D\u0927 \u092E\u0947\u0902 \u091A\u0915\u094D\u0930\u0935\u094D\u092F\u0942\u0939 \u092D\u0947\u0926\u0928\u0947 \u0915\u0947 \u0926\u094C\u0930\u093E\u0928 \u0915\u093F\u0938 \u0935\u0940\u0930 \u092F\u094B\u0926\u094D\u0927\u093E \u0928\u0947 \u0935\u0940\u0930\u0917\u0924\u093F \u092A\u094D\u0930\u093E\u092A\u094D\u0924 \u0915\u0940 \u0925\u0940?",
+      textEnglish: "Which brave warrior achieved martyrdom while breaking the Chakravyuha in the Mahabharata war?",
+      optionsHindi: ["\u0905\u092D\u093F\u092E\u0928\u094D\u092F\u0941", "\u0918\u091F\u094B\u0924\u094D\u0915\u091A", "\u0932\u0915\u094D\u0937\u094D\u092E\u0923 \u0915\u0941\u092E\u093E\u0930", "\u0926\u094D\u0930\u0941\u092A\u0926"],
+      optionsEnglish: ["Abhimanyu", "Ghatotkacha", "Lakshmana Kumara", "Drupada"],
+      correctHindi: "\u0905\u092D\u093F\u092E\u0928\u094D\u092F\u0941",
+      correctEnglish: "Abhimanyu",
+      explanationHindi: "\u0905\u0930\u094D\u091C\u0941\u0928 \u0915\u0947 \u092A\u0941\u0924\u094D\u0930 \u0935\u0940\u0930 \u0905\u092D\u093F\u092E\u0928\u094D\u092F\u0941 \u0928\u0947 \u0915\u0941\u0930\u0941\u0915\u094D\u0937\u0947\u0924\u094D\u0930 \u092F\u0941\u0926\u094D\u0927 \u0915\u0947 13\u0935\u0947\u0902 \u0926\u093F\u0928 \u0926\u094D\u0930\u094B\u0923\u093E\u091A\u093E\u0930\u094D\u092F \u0926\u094D\u0935\u093E\u0930\u093E \u0930\u091A\u093F\u0924 \u091A\u0915\u094D\u0930\u0935\u094D\u092F\u0942\u0939 \u092E\u0947\u0902 \u092A\u094D\u0930\u0935\u0947\u0936 \u0915\u0930 \u0936\u094C\u0930\u094D\u092F\u092A\u0942\u0930\u094D\u0935\u0915 \u0932\u0921\u093C\u0924\u0947 \u0939\u0941\u090F \u0935\u0940\u0930\u0917\u0924\u093F \u092A\u094D\u0930\u093E\u092A\u094D\u0924 \u0915\u0940 \u0925\u0940\u0964",
+      explanationEnglish: "Abhimanyu, the son of Arjuna, heroically entered and fought in the Chakravyuha on the 13th day of the war.",
+      ref: "Mahabharata"
+    }
+  ];
+  const shivPuranTemplates = [
+    {
+      textHindi: "\u0936\u093F\u0935 \u092A\u0941\u0930\u093E\u0923 \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0915\u093E \u092E\u0941\u0916\u094D\u092F \u0935\u093E\u0939\u0928 \u0915\u094C\u0928 \u0939\u0948?",
+      textEnglish: "According to Shiva Purana, who is the primary vehicle (vahana) of Lord Shiva?",
+      optionsHindi: ["\u0928\u0902\u0926\u0940 (\u092C\u0948\u0932)", "\u0917\u0930\u0941\u0921\u093C (\u091A\u0940\u0932)", "\u0938\u093F\u0902\u0939 (\u0936\u0947\u0930)", "\u092E\u092F\u0942\u0930 (\u092E\u094B\u0930)"],
+      optionsEnglish: ["Nandi (Bull)", "Garuda (Eagle)", "Lion", "Peacock"],
+      correctHindi: "\u0928\u0902\u0926\u0940 (\u092C\u0948\u0932)",
+      correctEnglish: "Nandi (Bull)",
+      explanationHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0915\u0947 \u0935\u093E\u0939\u0928 \u0928\u0902\u0926\u0940 (\u092C\u0948\u0932) \u0939\u0948\u0902, \u091C\u094B \u0927\u0930\u094D\u092E, \u092C\u0932 \u0914\u0930 \u0928\u093F\u0937\u094D\u0920\u093E \u0915\u0947 \u092A\u094D\u0930\u0924\u0940\u0915 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Nandi, the sacred bull, is Lord Shiva's mount, representing righteousness and devotion.",
+      ref: "Shiva Purana"
+    },
+    {
+      textHindi: "\u092D\u093E\u0930\u0924 \u0935\u0930\u094D\u0937 \u092E\u0947\u0902 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u092A\u094D\u0930\u092E\u0941\u0916 \u091C\u094D\u092F\u094B\u0924\u093F\u0930\u094D\u0932\u093F\u0902\u0917 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0939\u0948\u0902?",
+      textEnglish: "How many major Jyotirlingas are established across India?",
+      optionsHindi: ["12", "10", "108", "7"],
+      optionsEnglish: ["12", "10", "108", "7"],
+      correctHindi: "12",
+      correctEnglish: "12",
+      explanationHindi: "\u092D\u093E\u0930\u0924 \u092E\u0947\u0902 \u0915\u0941\u0932 12 \u0938\u094D\u0935\u092F\u0902\u092D\u0942 \u091C\u094D\u092F\u094B\u0924\u093F\u0930\u094D\u0932\u093F\u0902\u0917 \u0939\u0948\u0902, \u091C\u093F\u0928\u092E\u0947\u0902 \u0938\u094B\u092E\u0928\u093E\u0925, \u0915\u0947\u0926\u093E\u0930\u0928\u093E\u0925, \u0915\u093E\u0936\u0940 \u0935\u093F\u0936\u094D\u0935\u0928\u093E\u0925 \u0914\u0930 \u092E\u0939\u093E\u0915\u093E\u0932\u0947\u0936\u094D\u0935\u0930 \u0936\u093E\u092E\u093F\u0932 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "There are 12 self-manifested Jyotirlingas in India, such as Somnath, Kedarnath, and Kashi Vishwanath.",
+      ref: "Shiva Purana"
+    },
+    {
+      textHindi: "\u092E\u093E\u0924\u093E \u092A\u093E\u0930\u094D\u0935\u0924\u0940 \u0915\u093F\u0938 \u092E\u0939\u093E\u0928 \u092A\u0930\u094D\u0935\u0924\u0930\u093E\u091C \u0915\u0940 \u092A\u0941\u0924\u094D\u0930\u0940 \u0925\u0940\u0902?",
+      textEnglish: "Goddess Parvati was the daughter of which great mountain king?",
+      optionsHindi: ["\u0939\u093F\u092E\u093E\u0932\u092F (\u0939\u093F\u092E\u0935\u093E\u0928)", "\u0935\u093F\u0902\u0927\u094D\u092F\u093E\u091A\u0932", "\u0938\u0941\u092E\u0947\u0930\u0941", "\u0915\u0948\u0932\u093E\u0936"],
+      optionsEnglish: ["Himavan (Himalaya)", "Vindhyachal", "Sumeru", "Kailash"],
+      correctHindi: "\u0939\u093F\u092E\u093E\u0932\u092F (\u0939\u093F\u092E\u0935\u093E\u0928)",
+      correctEnglish: "Himavan (Himalaya)",
+      explanationHindi: "\u092E\u093E\u0924\u093E \u092A\u093E\u0930\u094D\u0935\u0924\u0940 \u092A\u0930\u094D\u0935\u0924\u0930\u093E\u091C \u0939\u093F\u092E\u0935\u093E\u0928 (\u0939\u093F\u092E\u093E\u0932\u092F) \u0914\u0930 \u0930\u093E\u0928\u0940 \u092E\u0948\u0928\u093E \u0915\u0940 \u092A\u0941\u0924\u094D\u0930\u0940 \u0925\u0940\u0902, \u0907\u0938\u0932\u093F\u090F \u0909\u0928\u094D\u0939\u0947\u0902 \u0936\u0948\u0932\u092A\u0941\u0924\u094D\u0930\u0940 \u0914\u0930 \u0939\u0947\u092E\u0935\u0924\u0940 \u092D\u0940 \u0915\u0939\u093E \u091C\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "Goddess Parvati was the daughter of the mountain king Himavan and Queen Maina.",
+      ref: "Shiva Purana"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0914\u0930 \u092E\u093E\u0924\u093E \u092A\u093E\u0930\u094D\u0935\u0924\u0940 \u0915\u0947 \u091C\u094D\u092F\u0947\u0937\u094D\u0920 \u092A\u0941\u0924\u094D\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948 \u091C\u093F\u0928\u094D\u0939\u094B\u0902\u0928\u0947 \u0924\u093E\u0930\u0915\u093E\u0938\u0941\u0930 \u0915\u093E \u0935\u0927 \u0915\u093F\u092F\u093E \u0925\u093E?",
+      textEnglish: "What is the name of Shiva and Parvati's elder son who slayed the demon Tarakasura?",
+      optionsHindi: ["\u0915\u093E\u0930\u094D\u0924\u093F\u0915\u0947\u092F (\u0938\u094D\u0915\u0902\u0926)", "\u0917\u0923\u0947\u0936", "\u0905\u0936\u094B\u0915 \u0938\u0941\u0902\u0926\u0930\u0940", "\u091C\u0932\u0902\u0927\u0930"],
+      optionsEnglish: ["Kartikeya (Skanda)", "Ganesha", "Ashoka Sundari", "Jalandhara"],
+      correctHindi: "\u0915\u093E\u0930\u094D\u0924\u093F\u0915\u0947\u092F (\u0938\u094D\u0915\u0902\u0926)",
+      correctEnglish: "Kartikeya (Skanda)",
+      explanationHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0914\u0930 \u092A\u093E\u0930\u094D\u0935\u0924\u0940 \u0915\u0947 \u092C\u0921\u093C\u0947 \u092A\u0941\u0924\u094D\u0930 \u0915\u093E\u0930\u094D\u0924\u093F\u0915\u0947\u092F (\u0938\u094D\u0915\u0902\u0926) \u0939\u0948\u0902, \u091C\u093F\u0928\u094D\u0939\u094B\u0902\u0928\u0947 \u0926\u0947\u0935\u0924\u093E\u0913\u0902 \u0915\u0947 \u0938\u0947\u0928\u093E\u092A\u0924\u093F \u092C\u0928\u0915\u0930 \u0924\u093E\u0930\u0915\u093E\u0938\u0941\u0930 \u0915\u093E \u0905\u0902\u0924 \u0915\u093F\u092F\u093E \u0925\u093E\u0964",
+      explanationEnglish: "Kartikeya (also known as Skanda or Murugan) is the elder son of Shiva who defeated Tarakasura.",
+      ref: "Shiva Purana"
+    },
+    {
+      textHindi: "\u0936\u093F\u0935\u0930\u093E\u0924\u094D\u0930\u093F \u0915\u093E \u092A\u093E\u0935\u0928 \u0935\u094D\u0930\u0924 \u0915\u093F\u0938 \u0939\u093F\u0902\u0926\u0942 \u092E\u0939\u0940\u0928\u0947 \u0915\u0947 \u0915\u0943\u0937\u094D\u0923 \u092A\u0915\u094D\u0937 \u0915\u0940 \u091A\u0924\u0941\u0930\u094D\u0926\u0936\u0940 \u0915\u094B \u092E\u0928\u093E\u092F\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "The auspicious fast of Maha Shivratri is celebrated on the Chaturdashi of Krishna Paksha in which Hindu month?",
+      optionsHindi: ["\u092B\u093E\u0932\u094D\u0917\u0941\u0928", "\u0915\u093E\u0930\u094D\u0924\u093F\u0915", "\u0938\u093E\u0935\u0928", "\u0906\u0936\u094D\u0935\u093F\u0928"],
+      optionsEnglish: ["Phalguna", "Kartika", "Shravana", "Ashvina"],
+      correctHindi: "\u092B\u093E\u0932\u094D\u0917\u0941\u0928",
+      correctEnglish: "Phalguna",
+      explanationHindi: "\u092B\u093E\u0932\u094D\u0917\u0941\u0928 \u092E\u093E\u0938 \u0915\u0947 \u0915\u0943\u0937\u094D\u0923 \u092A\u0915\u094D\u0937 \u0915\u0940 \u091A\u0924\u0941\u0930\u094D\u0926\u0936\u0940 \u0924\u093F\u0925\u093F \u0915\u094B \u0936\u093F\u0935 \u0914\u0930 \u092A\u093E\u0930\u094D\u0935\u0924\u0940 \u0915\u0947 \u092A\u093E\u0935\u0928 \u0935\u093F\u0935\u093E\u0939 \u0915\u0947 \u0909\u092A\u0932\u0915\u094D\u0937\u094D\u092F \u092E\u0947\u0902 \u092E\u0939\u093E\u0936\u093F\u0935\u0930\u093E\u0924\u094D\u0930\u093F \u092E\u0928\u093E\u0908 \u091C\u093E\u0924\u0940 \u0939\u0948\u0964",
+      explanationEnglish: "Maha Shivratri is celebrated in the month of Phalguna on Krishna Paksha Chaturdashi.",
+      ref: "Shiva Purana"
+    }
+  ];
+  const vishnuPuranTemplates = [
+    {
+      textHindi: "\u0935\u093F\u0937\u094D\u0923\u0941 \u092A\u0941\u0930\u093E\u0923 \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 \u092A\u094D\u0930\u092E\u0941\u0916 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u092E\u0941\u0916\u094D\u092F \u0905\u0935\u0924\u093E\u0930 (\u0926\u0936\u093E\u0935\u0924\u093E\u0930) \u092E\u093E\u0928\u0947 \u0917\u090F \u0939\u0948\u0902?",
+      textEnglish: "According to Vishnu Purana, how many primary incarnations (Dashavatara) of Lord Vishnu are recognized?",
+      optionsHindi: ["10", "12", "24", "4"],
+      optionsEnglish: ["10", "12", "24", "4"],
+      correctHindi: "10",
+      correctEnglish: "10",
+      explanationHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 10 \u092E\u0941\u0916\u094D\u092F \u0905\u0935\u0924\u093E\u0930 (\u0926\u0936\u093E\u0935\u0924\u093E\u0930) \u092E\u093E\u0928\u0947 \u0917\u090F \u0939\u0948\u0902, \u091C\u093F\u0928\u092E\u0947\u0902 \u092E\u0924\u094D\u0938\u094D\u092F, \u0915\u0942\u0930\u094D\u092E, \u0935\u0930\u093E\u0939 \u0938\u0947 \u0932\u0947\u0915\u0930 \u092D\u093E\u0935\u0940 \u0915\u0932\u094D\u0915\u093F \u0905\u0935\u0924\u093E\u0930 \u0936\u093E\u092E\u093F\u0932 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "The ten primary incarnations of Lord Vishnu are known as the Dashavatara.",
+      ref: "Vishnu Purana"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 \u092A\u0930\u092E \u092D\u0915\u094D\u0924 \u092C\u093E\u0932\u0915 \u092A\u094D\u0930\u0939\u094D\u0932\u093E\u0926 \u0915\u0947 \u092A\u093F\u0924\u093E \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0925\u093E?",
+      textEnglish: "What was the name of the father of the child devotee Prahlada?",
+      optionsHindi: ["\u0939\u093F\u0930\u0923\u094D\u092F\u0915\u0936\u093F\u092A\u0941", "\u0939\u093F\u0930\u0923\u094D\u092F\u093E\u0915\u094D\u0937", "\u0930\u093E\u0935\u0923", "\u0915\u0902\u0938"],
+      optionsEnglish: ["Hiranyakashipu", "Hiranyaksha", "Ravana", "Kansa"],
+      correctHindi: "\u0939\u093F\u0930\u0923\u094D\u092F\u0915\u0936\u093F\u092A\u0941",
+      correctEnglish: "Hiranyakashipu",
+      explanationHindi: "\u092C\u093E\u0932\u0915 \u092A\u094D\u0930\u0939\u094D\u0932\u093E\u0926 \u0915\u0947 \u092A\u093F\u0924\u093E \u0926\u0948\u0924\u094D\u092F\u0930\u093E\u091C \u0939\u093F\u0930\u0923\u094D\u092F\u0915\u0936\u093F\u092A\u0941 \u0925\u0947, \u091C\u093F\u0928\u0915\u093E \u0935\u0927 \u0915\u0930\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0928\u0947 \u0928\u0943\u0938\u093F\u0902\u0939 \u0905\u0935\u0924\u093E\u0930 \u0932\u093F\u092F\u093E \u0925\u093E\u0964",
+      explanationEnglish: "Prahlada's father was the demon king Hiranyakashipu, who was slain by Vishnu in Narasimha avatara.",
+      ref: "Vishnu Purana"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 \u0909\u0938 \u092A\u093E\u0935\u0928 \u0935\u093E\u0939\u0928 \u0915\u093E \u0928\u093E\u092E \u0915\u094D\u092F\u093E \u0939\u0948 \u091C\u094B \u092A\u0915\u094D\u0937\u0940\u0930\u093E\u091C \u0915\u0939\u0932\u093E\u0924\u0947 \u0939\u0948\u0902?",
+      textEnglish: "What is the name of Lord Vishnu's sacred mount who is known as the king of birds?",
+      optionsHindi: ["\u0917\u0930\u0941\u0921\u093C", "\u0928\u0902\u0926\u0940", "\u0936\u0947\u0937\u0928\u093E\u0917", "\u0910\u0930\u093E\u0935\u0924"],
+      optionsEnglish: ["Garuda", "Nandi", "Sheshnag", "Airavata"],
+      correctHindi: "\u0917\u0930\u0941\u0921\u093C",
+      correctEnglish: "Garuda",
+      explanationHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u093E \u092A\u093E\u0935\u0928 \u0935\u093E\u0939\u0928 \u0917\u0930\u0941\u0921\u093C \u0926\u0947\u0935 \u0939\u0948\u0902, \u091C\u094B \u092A\u0915\u094D\u0937\u093F\u092F\u094B\u0902 \u0915\u0947 \u0930\u093E\u091C\u093E \u0914\u0930 \u0924\u0940\u0935\u094D\u0930 \u0917\u0924\u093F \u0915\u0947 \u092A\u094D\u0930\u0924\u0940\u0915 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Garuda, the divine king of birds, serves as the vehicle of Lord Vishnu.",
+      ref: "Vishnu Purana"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 \u0939\u093E\u0925 \u092E\u0947\u0902 \u0938\u0941\u0936\u094B\u092D\u093F\u0924 \u091A\u0915\u094D\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948?",
+      textEnglish: "What is the name of the divine discus (chakra) held by Lord Vishnu?",
+      optionsHindi: ["\u0938\u0941\u0926\u0930\u094D\u0936\u0928 \u091A\u0915\u094D\u0930", "\u092A\u093F\u0928\u093E\u0915", "\u0915\u093E\u0932\u091A\u0915\u094D\u0930", "\u0935\u091C\u094D\u0930"],
+      optionsEnglish: ["Sudarshana Chakra", "Pinaka", "Kalachakra", "Vajra"],
+      correctHindi: "\u0938\u0941\u0926\u0930\u094D\u0936\u0928 \u091A\u0915\u094D\u0930",
+      correctEnglish: "Sudarshana Chakra",
+      explanationHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 \u0939\u093E\u0925 \u092E\u0947\u0902 \u0938\u0941\u0936\u094B\u092D\u093F\u0924 \u091A\u0915\u094D\u0930 \u0938\u0941\u0926\u0930\u094D\u0936\u0928 \u091A\u0915\u094D\u0930 \u0915\u0939\u0932\u093E\u0924\u093E \u0939\u0948, \u091C\u094B \u092C\u094D\u0930\u0939\u094D\u092E\u093E\u0902\u0921 \u0915\u093E \u0905\u092E\u094B\u0918 \u0936\u0938\u094D\u0924\u094D\u0930 \u0939\u0948\u0964",
+      explanationEnglish: "The Sudarshana Chakra is the spinning, disc-like weapon held by Lord Vishnu.",
+      ref: "Vishnu Purana"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0940 \u0905\u0930\u094D\u0927\u093E\u0902\u0917\u093F\u0928\u0940 \u0914\u0930 \u0927\u0928-\u0910\u0936\u094D\u0935\u0930\u094D\u092F \u0915\u0940 \u0905\u0927\u093F\u0937\u094D\u0920\u093E\u0924\u094D\u0930\u0940 \u0926\u0947\u0935\u0940 \u0915\u094C\u0928 \u0939\u0948\u0902?",
+      textEnglish: "Who is Lord Vishnu's consort and the goddess of wealth and prosperity?",
+      optionsHindi: ["\u0926\u0947\u0935\u0940 \u0932\u0915\u094D\u0937\u094D\u092E\u0940", "\u0926\u0947\u0935\u0940 \u0938\u0930\u0938\u094D\u0935\u0924\u0940", "\u0926\u0947\u0935\u0940 \u092A\u093E\u0930\u094D\u0935\u0924\u0940", "\u0926\u0947\u0935\u0940 \u0917\u093E\u092F\u0924\u094D\u0930\u0940"],
+      optionsEnglish: ["Goddess Lakshmi", "Goddess Saraswati", "Goddess Parvati", "Goddess Gayatri"],
+      correctHindi: "\u0926\u0947\u0935\u0940 \u0932\u0915\u094D\u0937\u094D\u092E\u0940",
+      correctEnglish: "Goddess Lakshmi",
+      explanationHindi: "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0940 \u0905\u0930\u094D\u0927\u093E\u0902\u0917\u093F\u0928\u0940 \u091C\u0917\u0928\u094D\u092E\u093E\u0924\u093E \u092E\u0939\u093E\u0932\u0915\u094D\u0937\u094D\u092E\u0940 \u0939\u0948\u0902, \u091C\u094B \u0938\u0943\u0937\u094D\u091F\u093F \u0915\u0940 \u092A\u093E\u0932\u0928 \u0936\u0915\u094D\u0924\u093F \u0914\u0930 \u0910\u0936\u094D\u0935\u0930\u094D\u092F \u0915\u0940 \u0926\u0947\u0935\u0940 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Goddess Lakshmi is the divine consort of Vishnu, presiding over wealth and abundance.",
+      ref: "Vishnu Purana"
+    }
+  ];
+  const bhagavatamTemplates = [
+    {
+      textHindi: "\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u093E\u0917\u0935\u0924 \u092E\u0939\u093E\u092A\u0941\u0930\u093E\u0923 \u092E\u0947\u0902 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u0938\u094D\u0915\u0902\u0927 (\u092D\u093E\u0917) \u0939\u0948\u0902?",
+      textEnglish: "How many Cantos (Skandhas) are there in Srimad Bhagavatam?",
+      optionsHindi: ["12 \u0938\u094D\u0915\u0902\u0927", "18 \u0938\u094D\u0915\u0902\u0927", "10 \u0938\u094D\u0915\u0902\u0927", "7 \u0938\u094D\u0915\u0902\u0927"],
+      optionsEnglish: ["12 Cantos", "18 Cantos", "10 Cantos", "7 Cantos"],
+      correctHindi: "12 \u0938\u094D\u0915\u0902\u0927",
+      correctEnglish: "12 Cantos",
+      explanationHindi: "\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u093E\u0917\u0935\u0924 \u092E\u0947\u0902 \u0915\u0941\u0932 12 \u0938\u094D\u0915\u0902\u0927 \u0914\u0930 18,000 \u0936\u094D\u0932\u094B\u0915 \u0939\u0948\u0902, \u091C\u094B \u092D\u0915\u094D\u0924\u093F \u0930\u0938 \u0938\u0947 \u092A\u0930\u093F\u092A\u0942\u0930\u094D\u0923 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Srimad Bhagavatam consists of 12 Cantos (Skandhas) and contains approximately 18,000 verses.",
+      ref: "Srimad Bhagavatam"
+    },
+    {
+      textHindi: "\u092E\u0939\u093E\u0930\u093E\u091C \u092A\u0930\u0940\u0915\u094D\u0937\u093F\u0924 \u0915\u094B \u0938\u093E\u0924 \u0926\u093F\u0928\u094B\u0902 \u092E\u0947\u0902 \u092E\u0941\u0915\u094D\u0924\u093F \u0926\u093F\u0932\u093E\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u093E\u0917\u0935\u0924 \u0915\u0925\u093E \u0915\u093E \u0936\u094D\u0930\u0935\u0923 \u0915\u093F\u0938\u0928\u0947 \u0915\u0930\u093E\u092F\u093E \u0925\u093E?",
+      textEnglish: "Who narrated the Srimad Bhagavatam to King Parikshit to grant him liberation in seven days?",
+      optionsHindi: ["\u0936\u0941\u0915\u0926\u0947\u0935 \u091C\u0940", "\u0938\u0942\u0924 \u091C\u0940", "\u0928\u093E\u0930\u0926 \u092E\u0941\u0928\u093F", "\u0935\u094D\u092F\u093E\u0938 \u0926\u0947\u0935"],
+      optionsEnglish: ["Shukadeva Goswami", "Suta Goswami", "Narada Muni", "Vyasa Dev"],
+      correctHindi: "\u0936\u0941\u0915\u0926\u0947\u0935 \u091C\u0940",
+      correctEnglish: "Shukadeva Goswami",
+      explanationHindi: "\u0935\u094D\u092F\u093E\u0938 \u092A\u0941\u0924\u094D\u0930 \u092A\u0930\u092E \u091C\u094D\u091E\u093E\u0928\u0940 \u0936\u094D\u0930\u0940 \u0936\u0941\u0915\u0926\u0947\u0935 \u091C\u0940 \u0928\u0947 \u0917\u0902\u0917\u093E \u0924\u091F \u092A\u0930 \u092E\u0939\u093E\u0930\u093E\u091C \u092A\u0930\u0940\u0915\u094D\u0937\u093F\u0924 \u0915\u094B \u092D\u093E\u0917\u0935\u0924 \u0915\u0925\u093E \u0938\u0941\u0928\u093E\u0908 \u0925\u0940\u0964",
+      explanationEnglish: "Sage Shukadeva, the son of Vyasa, narrated this supreme scripture to King Parikshit on the banks of Ganga.",
+      ref: "Srimad Bhagavatam"
+    },
+    {
+      textHindi: "\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u093E\u0917\u0935\u0924 \u0915\u0947 \u0915\u093F\u0938 \u0938\u094D\u0915\u0902\u0927 \u092E\u0947\u0902 \u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0915\u0947 \u092C\u093E\u0932\u094D\u092F\u0915\u093E\u0932 \u0914\u0930 \u0930\u093E\u0938\u0932\u0940\u0932\u093E \u0915\u093E \u0935\u093F\u0938\u094D\u0924\u0943\u0924 \u0935\u0930\u094D\u0923\u0928 \u0939\u0948?",
+      textEnglish: "Which Canto of Bhagavatam contains the detailed pastimes of Lord Krishna's childhood and Rasa Leela?",
+      optionsHindi: ["\u0926\u0936\u092E \u0938\u094D\u0915\u0902\u0927 (Canto 10)", "\u092A\u094D\u0930\u0925\u092E \u0938\u094D\u0915\u0902\u0927", "\u0926\u094D\u0935\u093E\u0926\u0936 \u0938\u094D\u0915\u0902\u0927", "\u092A\u0902\u091A\u092E \u0938\u094D\u0915\u0902\u0927"],
+      optionsEnglish: ["Canto 10", "Canto 1", "Canto 12", "Canto 5"],
+      correctHindi: "\u0926\u0936\u092E \u0938\u094D\u0915\u0902\u0927 (Canto 10)",
+      correctEnglish: "Canto 10",
+      explanationHindi: "\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u093E\u0917\u0935\u0924 \u0915\u093E \u0926\u0936\u092E \u0938\u094D\u0915\u0902\u0927 \u092A\u0942\u0930\u094D\u0923 \u0930\u0942\u092A \u0938\u0947 \u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0915\u0940 \u092C\u093E\u0932 \u0932\u0940\u0932\u093E\u0913\u0902, \u092E\u093E\u0916\u0928\u091A\u094B\u0930\u0940, \u0914\u0930 \u092E\u0939\u093E\u0930\u093E\u0938 \u092A\u0930 \u0906\u0927\u093E\u0930\u093F\u0924 \u0939\u0948\u0964",
+      explanationEnglish: "The 10th Canto is the heart of Bhagavatam, dedicated entirely to the pastimes of Lord Krishna.",
+      ref: "Srimad Bhagavatam Canto 10"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0915\u0947 \u0909\u0938 \u092A\u0930\u092E \u092E\u093F\u0924\u094D\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0925\u093E \u091C\u094B \u0905\u0924\u094D\u092F\u0902\u0924 \u0928\u093F\u0930\u094D\u0927\u0928 \u092C\u094D\u0930\u093E\u0939\u094D\u092E\u0923 \u0925\u0947 \u0914\u0930 \u0938\u0902\u0926\u0940\u092A\u0928\u093F \u0906\u0936\u094D\u0930\u092E \u092E\u0947\u0902 \u0938\u0939\u092A\u093E\u0920\u0940 \u0925\u0947?",
+      textEnglish: "What was the name of Lord Krishna's poor Brahmin childhood friend and classmate at Sandipani Ashram?",
+      optionsHindi: ["\u0938\u0941\u0926\u093E\u092E\u093E", "\u0909\u0926\u094D\u0927\u0935", "\u0905\u0915\u094D\u0930\u0942\u0930", "\u0905\u0930\u094D\u091C\u0941\u0928"],
+      optionsEnglish: ["Sudama", "Uddhava", "Akrura", "Arjuna"],
+      correctHindi: "\u0938\u0941\u0926\u093E\u092E\u093E",
+      correctEnglish: "Sudama",
+      explanationHindi: "\u0915\u0943\u0937\u094D\u0923 \u0915\u0947 \u092A\u0930\u092E \u0938\u0916\u093E \u0938\u0941\u0926\u093E\u092E\u093E \u0925\u0947, \u091C\u093F\u0928\u0915\u0940 \u0926\u0940\u0928\u0926\u0936\u093E \u0926\u0947\u0916\u0915\u0930 \u0926\u094D\u0935\u093E\u0930\u0915\u093E\u0927\u0940\u0936 \u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0928\u0947 \u0909\u0928\u0915\u0947 \u0906\u0902\u0938\u0941\u0913\u0902 \u0938\u0947 \u092A\u0948\u0930 \u0927\u094B\u090F \u0925\u0947\u0964",
+      explanationEnglish: "Sudama was Lord Krishna's beloved classmate whose humble devotion moved Krishna to wash his feet with tears.",
+      ref: "Srimad Bhagavatam"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0915\u0947 \u092A\u0930\u092E \u091C\u094D\u091E\u093E\u0928\u0940 \u0938\u0916\u093E \u0914\u0930 \u0926\u0942\u0924 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0925\u093E \u091C\u093F\u0928\u094D\u0939\u0947\u0902 \u0915\u0943\u0937\u094D\u0923 \u0928\u0947 \u0917\u094B\u092A\u093F\u092F\u094B\u0902 \u0915\u094B \u0938\u093E\u0902\u0924\u094D\u0935\u0928\u093E \u0926\u0947\u0928\u0947 \u0939\u0947\u0924\u0941 \u0935\u0943\u0902\u0926\u093E\u0935\u0928 \u092D\u0947\u091C\u093E \u0925\u093E?",
+      textEnglish: "What was the name of Lord Krishna's wise friend and messenger whom he sent to Vrindavan to console the Gopis?",
+      optionsHindi: ["\u0909\u0926\u094D\u0927\u0935", "\u0938\u0941\u0926\u093E\u092E\u093E", "\u0905\u0915\u094D\u0930\u0942\u0930", "\u092C\u0932\u0930\u093E\u092E"],
+      optionsEnglish: ["Uddhava", "Sudama", "Akrura", "Balarama"],
+      correctHindi: "\u0909\u0926\u094D\u0927\u0935",
+      correctEnglish: "Uddhava",
+      explanationHindi: "\u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0915\u0947 \u091C\u094D\u091E\u093E\u0928\u0940 \u0938\u0916\u093E \u0909\u0926\u094D\u0927\u0935 \u0925\u0947, \u091C\u093F\u0928\u094D\u0939\u0947\u0902 \u091C\u094D\u091E\u093E\u0928 \u0915\u093E \u0905\u092D\u093F\u092E\u093E\u0928 \u0926\u0942\u0930 \u0915\u0930\u0928\u0947 \u0914\u0930 \u092A\u094D\u0930\u0947\u092E \u0915\u093E \u092A\u093E\u0920 \u0938\u0940\u0916\u0928\u0947 \u0939\u0947\u0924\u0941 \u0915\u0943\u0937\u094D\u0923 \u0928\u0947 \u092C\u094D\u0930\u091C \u092D\u0947\u091C\u093E \u0925\u093E\u0964",
+      explanationEnglish: "Uddhava, the wise disciple of Brihaspati and friend of Krishna, was sent to Vrindavan with a message for the Gopis.",
+      ref: "Srimad Bhagavatam Canto 10"
+    }
+  ];
+  const vedasTemplates = [
+    {
+      textHindi: "\u0938\u0902\u0938\u093E\u0930 \u0915\u0947 \u0938\u092C\u0938\u0947 \u092A\u094D\u0930\u093E\u091A\u0940\u0928\u0924\u092E \u0932\u093F\u0916\u093F\u0924 \u0917\u094D\u0930\u0902\u0925 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948?",
+      textEnglish: "What is the name of the oldest written scripture in the world?",
+      optionsHindi: ["\u090B\u0917\u094D\u0935\u0947\u0926", "\u0938\u093E\u092E\u0935\u0947\u0926", "\u092F\u091C\u0941\u0930\u094D\u0935\u0947\u0926", "\u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926"],
+      optionsEnglish: ["Rigveda", "Samaveda", "Yajurveda", "Atharvaveda"],
+      correctHindi: "\u090B\u0917\u094D\u0935\u0947\u0926",
+      correctEnglish: "Rigveda",
+      explanationHindi: "\u090B\u0917\u094D\u0935\u0947\u0926 \u0915\u094B \u092E\u093E\u0928\u0935 \u0938\u092D\u094D\u092F\u0924\u093E \u0914\u0930 \u0938\u0928\u093E\u0924\u0928 \u0927\u0930\u094D\u092E \u0915\u093E \u092A\u094D\u0930\u093E\u091A\u0940\u0928\u0924\u092E \u0906\u0926\u093F \u0917\u094D\u0930\u0902\u0925 \u092E\u093E\u0928\u093E \u091C\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "The Rigveda is universally recognized as the oldest sacred text in human history.",
+      ref: "Rigveda"
+    },
+    {
+      textHindi: "\u0938\u0928\u093E\u0924\u0928 \u0927\u0930\u094D\u092E \u0915\u0947 \u0906\u0927\u093E\u0930\u092D\u0942\u0924 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u0935\u0947\u0926 \u0939\u0948\u0902?",
+      textEnglish: "How many Vedas are there in Sanatan Dharma?",
+      optionsHindi: ["4 \u0935\u0947\u0926", "3 \u0935\u0947\u0926", "108 \u0935\u0947\u0926", "18 \u0935\u0947\u0926"],
+      optionsEnglish: ["4 Vedas", "3 Vedas", "108 Vedas", "18 Vedas"],
+      correctHindi: "4 \u0935\u0947\u0926",
+      correctEnglish: "4 Vedas",
+      explanationHindi: "\u0935\u0947\u0926 \u091A\u093E\u0930 \u0939\u0948\u0902: \u090B\u0917\u094D\u0935\u0947\u0926, \u092F\u091C\u0941\u0930\u094D\u0935\u0947\u0926, \u0938\u093E\u092E\u0935\u0947\u0926 \u0914\u0930 \u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926\u0964 \u0907\u0928\u094D\u0939\u0947\u0902 '\u0938\u0902\u0939\u093F\u0924\u093E' \u092D\u0940 \u0915\u0939\u093E \u091C\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "The four Vedas are Rigveda, Yajurveda, Samaveda, and Atharvaveda.",
+      ref: "Vedas"
+    },
+    {
+      textHindi: "\u092D\u093E\u0930\u0924\u0940\u092F \u0936\u093E\u0938\u094D\u0924\u094D\u0930\u0940\u092F \u0938\u0902\u0917\u0940\u0924 \u0914\u0930 \u0938\u094D\u0935\u0930\u094B\u0902 \u0915\u093E \u092E\u0942\u0932 \u0915\u093F\u0938 \u0935\u0947\u0926 \u0915\u094B \u092E\u093E\u0928\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "Which Veda is considered the foundational source of Indian classical music and melodies?",
+      optionsHindi: ["\u0938\u093E\u092E\u0935\u0947\u0926", "\u090B\u0917\u094D\u0935\u0947\u0926", "\u092F\u091C\u0941\u0930\u094D\u0935\u0947\u0926", "\u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926"],
+      optionsEnglish: ["Samaveda", "Rigveda", "Yajurveda", "Atharvaveda"],
+      correctHindi: "\u0938\u093E\u092E\u0935\u0947\u0926",
+      correctEnglish: "Samaveda",
+      explanationHindi: "\u0938\u093E\u092E\u0935\u0947\u0926 \u092E\u0947\u0902 \u092F\u091C\u094D\u091E\u094B\u0902 \u0915\u0947 \u0938\u092E\u092F \u0917\u093E\u090F \u091C\u093E\u0928\u0947 \u0935\u093E\u0932\u0947 \u092E\u0902\u0924\u094D\u0930\u094B\u0902 \u0915\u093E \u0938\u0902\u0915\u0932\u0928 \u0939\u0948, \u091C\u094B \u092D\u093E\u0930\u0924\u0940\u092F \u0938\u0902\u0917\u0940\u0924 \u0915\u093E \u091C\u0928\u0915 \u0939\u0948\u0964",
+      explanationEnglish: "The Samaveda consists of melodies and chants, serving as the root of Indian music science.",
+      ref: "Samaveda"
+    },
+    {
+      textHindi: "\u092A\u094D\u0930\u0938\u093F\u0926\u094D\u0927 \u0917\u093E\u092F\u0924\u094D\u0930\u0940 \u092E\u0902\u0924\u094D\u0930 '\u0950 \u092D\u0942\u0930\u094D\u092D\u0941\u0935\u0903 \u0938\u094D\u0935\u0903' \u090B\u0917\u094D\u0935\u0947\u0926 \u0915\u0947 \u0915\u093F\u0938 \u092E\u0902\u0921\u0932 \u0938\u0947 \u0932\u093F\u092F\u093E \u0917\u092F\u093E \u0939\u0948?",
+      textEnglish: "The famous Gayatri Mantra is found in which Mandala of the Rigveda?",
+      optionsHindi: ["\u0924\u0943\u0924\u0940\u092F \u092E\u0902\u0921\u0932 (3rd Mandala)", "\u092A\u094D\u0930\u0925\u092E \u092E\u0902\u0921\u0932", "\u0926\u0938\u0935\u093E\u0902 \u092E\u0902\u0921\u0932", "\u0928\u094C\u0935\u093E\u0902 \u092E\u0902\u0921\u0932"],
+      optionsEnglish: ["3rd Mandala", "1st Mandala", "10th Mandala", "9th Mandala"],
+      correctHindi: "\u0924\u0943\u0924\u0940\u092F \u092E\u0902\u0921\u0932 (3rd Mandala)",
+      correctEnglish: "3rd Mandala",
+      explanationHindi: "\u0917\u093E\u092F\u0924\u094D\u0930\u0940 \u092E\u0902\u0924\u094D\u0930 \u090B\u0917\u094D\u0935\u0947\u0926 \u0915\u0947 \u0924\u0943\u0924\u0940\u092F \u092E\u0902\u0921\u0932 \u0915\u0947 \u096C\u0968\u0935\u0947\u0902 \u0938\u0942\u0915\u094D\u0924 \u0915\u093E \u0967\u0966\u0935\u093E\u0902 \u092E\u0902\u0924\u094D\u0930 \u0939\u0948, \u091C\u093F\u0938\u0915\u0947 \u0930\u091A\u092F\u093F\u0924\u093E \u092E\u0939\u0930\u094D\u0937\u093F \u0935\u093F\u0936\u094D\u0935\u093E\u092E\u093F\u0924\u094D\u0930 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "The Gayatri Mantra was revealed by Sage Vishwamitra and is situated in the 3rd Mandala of Rigveda.",
+      ref: "Rigveda 3.62.10"
+    },
+    {
+      textHindi: "\u0906\u092F\u0941\u0930\u094D\u0935\u0947\u0926, \u091C\u0921\u093C\u0940-\u092C\u0942\u091F\u093F\u092F\u094B\u0902, \u0926\u0948\u0928\u093F\u0915 \u0935\u093F\u091C\u094D\u091E\u093E\u0928 \u0914\u0930 \u0917\u0943\u0939-\u0935\u093E\u0938\u094D\u0924\u0941 \u0915\u093E \u0935\u0930\u094D\u0923\u0928 \u0935\u093F\u0936\u0947\u0937 \u0930\u0942\u092A \u0938\u0947 \u0915\u093F\u0938 \u0935\u0947\u0926 \u092E\u0947\u0902 \u092E\u093F\u0932\u0924\u093E \u0939\u0948?",
+      textEnglish: "The description of Ayurveda, herbal medicines, house construction, and daily sciences is primarily found in which Veda?",
+      optionsHindi: ["\u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926", "\u090B\u0917\u094D\u0935\u0947\u0926", "\u092F\u091C\u0941\u0930\u094D\u0935\u0947\u0926", "\u0938\u093E\u092E\u0935\u0947\u0926"],
+      optionsEnglish: ["Atharvaveda", "Rigveda", "Yajurveda", "Samaveda"],
+      correctHindi: "\u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926",
+      correctEnglish: "Atharvaveda",
+      explanationHindi: "\u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926 \u092E\u0947\u0902 \u091C\u0921\u093C\u0940-\u092C\u0942\u091F\u093F\u092F\u094B\u0902, \u0906\u092F\u0941\u0930\u094D\u0935\u0947\u0926, \u0936\u093E\u0902\u0924\u093F \u0915\u0930\u094D\u092E \u0914\u0930 \u0932\u094B\u0915 \u0915\u0932\u094D\u092F\u093E\u0923\u0915\u093E\u0930\u0940 \u0932\u094C\u0915\u093F\u0915 \u0935\u093F\u0937\u092F\u094B\u0902 \u0915\u093E \u0935\u0930\u094D\u0923\u0928 \u0939\u0948\u0964",
+      explanationEnglish: "The Atharvaveda contains details on daily life, sciences, medicine (Ayurveda), and societal ethics.",
+      ref: "Atharvaveda"
+    }
+  ];
+  const upanishadsTemplates = [
+    {
+      textHindi: "\u0909\u092A\u0928\u093F\u0937\u0926 \u0915\u093E \u0936\u093E\u092C\u094D\u0926\u093F\u0915 \u0905\u0930\u094D\u0925 \u0915\u094D\u092F\u093E \u0939\u094B\u0924\u093E \u0939\u0948?",
+      textEnglish: "What is the literal meaning of the word 'Upanishad'?",
+      optionsHindi: ["\u0917\u0941\u0930\u0941 \u0915\u0947 \u0938\u092E\u0940\u092A \u0936\u094D\u0930\u0926\u094D\u0927\u093E\u092A\u0942\u0930\u094D\u0935\u0915 \u092C\u0948\u0920\u0928\u093E", "\u0908\u0936\u094D\u0935\u0930 \u0915\u0940 \u0938\u094D\u0924\u0941\u0924\u093F \u0915\u0930\u0928\u093E", "\u091C\u0902\u0917\u0932 \u092E\u0947\u0902 \u091C\u093E\u0915\u0930 \u0924\u092A\u0938\u094D\u092F\u093E \u0915\u0930\u0928\u093E", "\u0917\u094D\u0930\u0902\u0925\u094B\u0902 \u0915\u093E \u092A\u093E\u0920 \u0915\u0930\u0928\u093E"],
+      optionsEnglish: ["To sit down devotedly near the teacher", "To praise the Lord", "To meditate in forests", "To recite holy books"],
+      correctHindi: "\u0917\u0941\u0930\u0941 \u0915\u0947 \u0938\u092E\u0940\u092A \u0936\u094D\u0930\u0926\u094D\u0927\u093E\u092A\u0942\u0930\u094D\u0935\u0915 \u092C\u0948\u0920\u0928\u093E",
+      correctEnglish: "To sit down devotedly near the teacher",
+      explanationHindi: "\u0909\u092A\u0928\u093F\u0937\u0926 \u0915\u093E \u0905\u0930\u094D\u0925 \u0939\u0948 '\u0909\u092A' (\u0938\u092E\u0940\u092A) '\u0928\u093F' (\u0936\u094D\u0930\u0926\u094D\u0927\u093E\u092A\u0942\u0930\u094D\u0935\u0915) '\u0937\u0926' (\u092C\u0948\u0920\u0928\u093E) - \u0905\u0930\u094D\u0925\u093E\u0924\u094D \u0906\u0924\u094D\u092E\u091C\u094D\u091E\u093E\u0928 \u0915\u0947 \u0932\u093F\u090F \u0917\u0941\u0930\u0941 \u0915\u0947 \u091A\u0930\u0923\u094B\u0902 \u092E\u0947\u0902 \u092C\u0948\u0920\u0928\u093E\u0964",
+      explanationEnglish: "Upanishad literally means sitting down devotedly near a spiritual preceptor to receive sacred wisdom.",
+      ref: "Upanishads"
+    },
+    {
+      textHindi: "\u092D\u093E\u0930\u0924 \u0915\u0947 \u0930\u093E\u091C\u0915\u0940\u092F \u092A\u094D\u0930\u0924\u0940\u0915 \u092A\u0930 \u0905\u0902\u0915\u093F\u0924 \u0938\u0942\u0924\u094D\u0930 '\u0938\u0924\u094D\u092F\u092E\u0947\u0935 \u091C\u092F\u0924\u0947' \u0915\u093F\u0938 \u0909\u092A\u0928\u093F\u0937\u0926 \u0938\u0947 \u0932\u093F\u092F\u093E \u0917\u092F\u093E \u0939\u0948?",
+      textEnglish: "The national motto of India 'Satyameva Jayate' (Truth alone triumphs) is taken from which Upanishad?",
+      optionsHindi: ["\u092E\u0941\u0923\u094D\u0921\u0915 \u0909\u092A\u0928\u093F\u0937\u0926 (Mundaka Upanishad)", "\u0915\u0920 \u0909\u092A\u0928\u093F\u0937\u0926", "\u092E\u093E\u0923\u094D\u0921\u0942\u0915\u094D\u092F \u0909\u092A\u0928\u093F\u0937\u0926", "\u0908\u0936\u093E\u0935\u093E\u0938\u094D\u092F \u0909\u092A\u0928\u093F\u0937\u0926"],
+      optionsEnglish: ["Mundaka Upanishad", "Katha Upanishad", "Mandukya Upanishad", "Ishavasya Upanishad"],
+      correctHindi: "\u092E\u0941\u0923\u094D\u0921\u0915 \u0909\u092A\u0928\u093F\u0937\u0926 (Mundaka Upanishad)",
+      correctEnglish: "Mundaka Upanishad",
+      explanationHindi: "\u0938\u0924\u094D\u092F\u092E\u0947\u0935 \u091C\u092F\u0924\u0947 \u092E\u0941\u0923\u094D\u0921\u0915 \u0909\u092A\u0928\u093F\u0937\u0926 \u0915\u0947 \u0924\u0940\u0938\u0930\u0947 \u092E\u0941\u0923\u094D\u0921\u0915 \u0915\u0947 \u092A\u094D\u0930\u0925\u092E \u0916\u0902\u0921 \u0915\u093E \u091B\u0920\u093E \u092E\u0902\u0924\u094D\u0930 \u0939\u0948\u0964",
+      explanationEnglish: "'Satyameva Jayate' is a sacred mantra from Mundaka Upanishad, signifying the ultimate victory of truth.",
+      ref: "Mundaka Upanishad"
+    },
+    {
+      textHindi: "\u092F\u092E\u0930\u093E\u091C \u0914\u0930 \u092C\u093E\u0932\u0915 \u0928\u091A\u093F\u0915\u0947\u0924\u093E \u0915\u0947 \u092C\u0940\u091A \u0939\u0941\u0906 \u0905\u092E\u0930 \u0906\u0924\u094D\u092E\u093E \u0915\u093E \u0938\u0902\u0935\u093E\u0926 \u0915\u093F\u0938 \u0909\u092A\u0928\u093F\u0937\u0926 \u092E\u0947\u0902 \u0935\u0930\u094D\u0923\u093F\u0924 \u0939\u0948?",
+      textEnglish: "The dialogue between Lord Yama (Death) and the child Nachiketa regarding the secret of the soul is in which Upanishad?",
+      optionsHindi: ["\u0915\u0920 \u0909\u092A\u0928\u093F\u0937\u0926 (Katha Upanishad)", "\u0915\u0947\u0928 \u0909\u092A\u0928\u093F\u0937\u0926", "\u0924\u0948\u0924\u094D\u0924\u093F\u0930\u0940\u092F \u0909\u092A\u0928\u093F\u0937\u0926", "\u091B\u093E\u0928\u094D\u0926\u094B\u0917\u094D\u092F \u0909\u092A\u0928\u093F\u0937\u0926"],
+      optionsEnglish: ["Katha Upanishad", "Kena Upanishad", "Taittiriya Upanishad", "Chandogya Upanishad"],
+      correctHindi: "\u0915\u0920 \u0909\u092A\u0928\u093F\u0937\u0926 (Katha Upanishad)",
+      correctEnglish: "Katha Upanishad",
+      explanationHindi: "\u0915\u0920 \u0909\u092A\u0928\u093F\u0937\u0926 \u092E\u0947\u0902 \u0928\u091A\u093F\u0915\u0947\u0924\u093E \u0915\u0947 \u0924\u0940\u0928 \u0935\u0930\u0926\u093E\u0928\u094B\u0902 \u0914\u0930 \u092F\u092E\u0930\u093E\u091C \u0926\u094D\u0935\u093E\u0930\u093E \u0926\u093F\u090F \u0917\u090F \u0906\u0924\u094D\u092E\u093E \u0915\u0947 \u0905\u092E\u0930\u0924\u094D\u0935 \u0915\u0947 \u091C\u094D\u091E\u093E\u0928 \u0915\u093E \u0905\u0928\u0941\u092A\u092E \u092A\u094D\u0930\u0938\u0902\u0917 \u0939\u0948\u0964",
+      explanationEnglish: "The Katha Upanishad contains the legendary conversation where Yama explains the nature of the Self to Nachiketa.",
+      ref: "Katha Upanishad"
+    },
+    {
+      textHindi: "\u0909\u092A\u0928\u093F\u0937\u0926\u094B\u0902 \u0915\u093E \u092E\u0941\u0916\u094D\u092F \u0935\u093F\u0937\u092F \u0915\u094D\u092F\u093E \u0939\u0948 \u091C\u093F\u0938\u0915\u0947 \u0915\u093E\u0930\u0923 \u0907\u0928\u094D\u0939\u0947\u0902 '\u0935\u0947\u0926\u093E\u0902\u0924' \u092D\u0940 \u0915\u0939\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "What is the primary subject matter of Upanishads, due to which they are also called 'Vedanta'?",
+      optionsHindi: ["\u092C\u094D\u0930\u0939\u094D\u092E\u0935\u093F\u0926\u094D\u092F\u093E \u090F\u0935\u0902 \u0906\u0924\u094D\u092E\u091C\u094D\u091E\u093E\u0928", "\u092F\u091C\u094D\u091E \u0905\u0928\u0941\u0937\u094D\u0920\u093E\u0928 \u0914\u0930 \u0915\u0930\u094D\u092E\u0915\u093E\u0902\u0921", "\u0926\u0947\u0935\u0940-\u0926\u0947\u0935\u0924\u093E\u0913\u0902 \u0915\u0940 \u092A\u0942\u091C\u093E", "\u0907\u0924\u093F\u0939\u093E\u0938 \u0914\u0930 \u0935\u0902\u0936\u093E\u0935\u0932\u0940"],
+      optionsEnglish: ["Brahmavidya and Self-Knowledge", "Rituals and Sacrifices", "Deity worship", "History and genealogy"],
+      correctHindi: "\u092C\u094D\u0930\u0939\u094D\u092E\u0935\u093F\u0926\u094D\u092F\u093E \u090F\u0935\u0902 \u0906\u0924\u094D\u092E\u091C\u094D\u091E\u093E\u0928",
+      correctEnglish: "Brahmavidya and Self-Knowledge",
+      explanationHindi: "\u0909\u092A\u0928\u093F\u0937\u0926 \u0935\u0947\u0926\u094B\u0902 \u0915\u0947 \u0905\u0902\u0924\u093F\u092E \u092D\u093E\u0917 \u0939\u0948\u0902 (\u0935\u0947\u0926\u093E\u0902\u0924) \u091C\u093F\u0928\u0915\u093E \u092A\u0930\u092E \u0932\u0915\u094D\u0937\u094D\u092F \u0906\u0924\u094D\u092E\u093E \u0914\u0930 \u092A\u0930\u092E\u093E\u0924\u094D\u092E\u093E \u0915\u0947 \u090F\u0915\u0924\u094D\u0935 (\u092C\u094D\u0930\u0939\u094D\u092E\u091C\u094D\u091E\u093E\u0928) \u0915\u093E \u092A\u094D\u0930\u0924\u093F\u092A\u093E\u0926\u0928 \u0915\u0930\u0928\u093E \u0939\u0948\u0964",
+      explanationEnglish: "Upanishads mark the culmination of Vedic wisdom, focusing purely on metaphysical reality and Self-realization.",
+      ref: "Upanishads"
+    },
+    {
+      textHindi: "\u092A\u094D\u0930\u0938\u093F\u0926\u094D\u0927 \u0936\u093E\u0902\u0924\u093F \u092A\u093E\u0920 '\u0905\u0938\u0924\u094B \u092E\u093E \u0938\u0926\u094D\u0917\u092E\u092F, \u0924\u092E\u0938\u094B \u092E\u093E \u091C\u094D\u092F\u094B\u0924\u093F\u0930\u094D\u0917\u092E\u092F' \u0915\u093F\u0938 \u0909\u092A\u0928\u093F\u0937\u0926 \u0938\u0947 \u0932\u093F\u092F\u093E \u0917\u092F\u093E \u0939\u0948?",
+      textEnglish: "The famous peace prayer 'Asato Ma Sadgamaya...' is extracted from which Upanishad?",
+      optionsHindi: ["\u092C\u0943\u0939\u0926\u093E\u0930\u0923\u094D\u092F\u0915 \u0909\u092A\u0928\u093F\u0937\u0926", "\u091B\u093E\u0928\u094D\u0926\u094B\u0917\u094D\u092F \u0909\u092A\u0928\u093F\u0937\u0926", "\u0936\u094D\u0935\u0947\u0924\u093E\u0936\u094D\u0935\u0924\u0930 \u0909\u092A\u0928\u093F\u0937\u0926", "\u0924\u0948\u0924\u094D\u0924\u093F\u0930\u0940\u092F \u0909\u092A\u0928\u093F\u0937\u0926"],
+      optionsEnglish: ["Brihadaranyaka Upanishad", "Chandogya Upanishad", "Shvetashvatara Upanishad", "Taittiriya Upanishad"],
+      correctHindi: "\u092C\u0943\u0939\u0926\u093E\u0930\u0923\u094D\u092F\u0915 \u0909\u092A\u0928\u093F\u0937\u0926",
+      correctEnglish: "Brihadaranyaka Upanishad",
+      explanationHindi: "\u092F\u0939 \u092E\u0902\u0924\u094D\u0930 \u092C\u0943\u0939\u0926\u093E\u0930\u0923\u094D\u092F\u0915 \u0909\u092A\u0928\u093F\u0937\u0926 (1.3.28) \u0938\u0947 \u0932\u093F\u092F\u093E \u0917\u092F\u093E \u0939\u0948, \u091C\u093F\u0938\u0915\u093E \u0905\u0930\u094D\u0925 \u0939\u0948 '\u092E\u0941\u091D\u0947 \u0905\u0938\u0924\u094D\u092F \u0938\u0947 \u0938\u0924\u094D\u092F \u0915\u0940 \u0913\u0930, \u0905\u0902\u0927\u0915\u093E\u0930 \u0938\u0947 \u092A\u094D\u0930\u0915\u093E\u0936 \u0915\u0940 \u0913\u0930 \u0932\u0947 \u091A\u0932\u094B\u0964'",
+      explanationEnglish: "This sacred chant is from the Brihadaranyaka Upanishad, praying for transition from untruth to truth, and darkness to light.",
+      ref: "Brihadaranyaka Upanishad"
+    }
+  ];
+  const saintsTemplates = [
+    {
+      textHindi: "\u0905\u0926\u094D\u0935\u0948\u0924 \u0935\u0947\u0926\u093E\u0902\u0924 \u0926\u0930\u094D\u0936\u0928 \u0915\u0947 \u092A\u0941\u0928\u0930\u0941\u0926\u094D\u0927\u093E\u0930\u0915 \u0914\u0930 \u091A\u093E\u0930 \u0926\u093F\u0936\u093E\u0913\u0902 \u092E\u0947\u0902 \u091A\u093E\u0930 \u092A\u0940\u0920\u094B\u0902 \u0915\u0947 \u0938\u0902\u0938\u094D\u0925\u093E\u092A\u0915 \u0915\u094C\u0928 \u0925\u0947?",
+      textEnglish: "Who was the rejuvenator of Advaita Vedanta and founder of the four sacred monasteries (Peethas)?",
+      optionsHindi: ["\u0906\u0926\u093F \u0936\u0902\u0915\u0930\u093E\u091A\u093E\u0930\u094D\u092F", "\u0930\u093E\u092E\u093E\u0928\u0941\u091C\u093E\u091A\u093E\u0930\u094D\u092F", "\u092E\u0927\u094D\u0935\u093E\u091A\u093E\u0930\u094D\u092F", "\u0938\u0902\u0924 \u0915\u092C\u0940\u0930"],
+      optionsEnglish: ["Adi Shankaracharya", "Ramanujacharya", "Madhvacharya", "Saint Kabir"],
+      correctHindi: "\u0906\u0926\u093F \u0936\u0902\u0915\u0930\u093E\u091A\u093E\u0930\u094D\u092F",
+      correctEnglish: "Adi Shankaracharya",
+      explanationHindi: "\u0906\u0926\u093F\u0917\u0941\u0930\u0941 \u0936\u0902\u0915\u0930\u093E\u091A\u093E\u0930\u094D\u092F \u091C\u0940 \u0928\u0947 \u0905\u0926\u094D\u0935\u0948\u0924 \u092E\u0924 \u0915\u093E \u092A\u094D\u0930\u091A\u093E\u0930 \u0915\u093F\u092F\u093E \u0914\u0930 \u092D\u093E\u0930\u0924 \u0915\u0940 \u091A\u093E\u0930\u094B\u0902 \u0926\u093F\u0936\u093E\u0913\u0902 (\u092C\u0926\u094D\u0930\u0940\u0928\u093E\u0925, \u0926\u094D\u0935\u093E\u0930\u0915\u093E, \u092A\u0941\u0930\u0940, \u0936\u094D\u0930\u0943\u0902\u0917\u0947\u0930\u0940) \u092E\u0947\u0902 \u091A\u093E\u0930 \u092A\u0940\u0920 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0915\u093F\u090F\u0964",
+      explanationEnglish: "Adi Shankaracharya established the four cardinal monastic centers to preserve Vedic culture.",
+      ref: "Saints & Gurus"
+    },
+    {
+      textHindi: "Swami Vivekananda \u0915\u0947 \u092A\u0930\u092E \u092A\u0942\u091C\u094D\u092F \u0906\u0927\u094D\u092F\u093E\u0924\u094D\u092E\u093F\u0915 \u0917\u0941\u0930\u0941 \u0915\u094C\u0928 \u0925\u0947 \u091C\u093F\u0928\u0915\u0947 \u0928\u093E\u092E \u092A\u0930 \u092C\u0947\u0932\u0942\u0930 \u092E\u0920 \u0915\u0940 \u0938\u094D\u0925\u093E\u092A\u0928\u093E \u0939\u0941\u0908?",
+      textEnglish: "Who was the highly revered spiritual master of Swami Vivekananda, in whose name Belur Math was founded?",
+      optionsHindi: ["\u0936\u094D\u0930\u0940 \u0930\u093E\u092E\u0915\u0943\u0937\u094D\u0923 \u092A\u0930\u092E\u0939\u0902\u0938", "\u0938\u094D\u0935\u093E\u092E\u0940 \u0926\u092F\u093E\u0928\u0902\u0926 \u0938\u0930\u0938\u094D\u0935\u0924\u0940", "\u092A\u0930\u092E\u0939\u0902\u0938 \u092F\u094B\u0917\u093E\u0928\u0902\u0926", "\u0924\u0948\u0932\u0917 \u0938\u094D\u0935\u093E\u092E\u0940"],
+      optionsEnglish: ["Sri Ramakrishna Paramahamsa", "Swami Dayananda Saraswati", "Paramahansa Yogananda", "Trailanga Swami"],
+      correctHindi: "\u0936\u094D\u0930\u0940 \u0930\u093E\u092E\u0915\u0943\u0937\u094D\u0923 \u092A\u0930\u092E\u0939\u0902\u0938",
+      correctEnglish: "Sri Ramakrishna Paramahamsa",
+      explanationHindi: "\u0935\u093F\u0935\u0947\u0915\u093E\u0928\u0902\u0926 \u0915\u0947 \u0917\u0941\u0930\u0941 \u0926\u0915\u094D\u0937\u093F\u0923\u0947\u0936\u094D\u0935\u0930 \u0915\u0947 \u0938\u0902\u0924 \u0936\u094D\u0930\u0940 \u0930\u093E\u092E\u0915\u0943\u0937\u094D\u0923 \u092A\u0930\u092E\u0939\u0902\u0938 \u091C\u0940 \u0925\u0947, \u091C\u093F\u0928\u094D\u0939\u094B\u0902\u0928\u0947 \u092D\u0915\u094D\u0924\u093F \u0914\u0930 \u0938\u092E\u093E\u0927\u093F \u0915\u093E \u0938\u093E\u0915\u094D\u0937\u093E\u0924\u094D \u0909\u0926\u093E\u0939\u0930\u0923 \u092A\u094D\u0930\u0938\u094D\u0924\u0941\u0924 \u0915\u093F\u092F\u093E\u0964",
+      explanationEnglish: "Sri Ramakrishna Paramahamsa was the spiritual mentor of Swami Vivekananda who taught the synthesis of all faiths.",
+      ref: "Saints & Gurus"
+    },
+    {
+      textHindi: "\u092E\u0927\u094D\u092F\u0915\u093E\u0932\u0940\u0928 \u0938\u0902\u0924 \u092E\u0940\u0930\u093E\u092C\u093E\u0908 \u0915\u093F\u0938 \u0906\u0930\u093E\u0927\u094D\u092F \u0926\u0947\u0935 \u0915\u0940 \u0905\u0928\u0928\u094D\u092F \u0914\u0930 \u092D\u093E\u0935\u092A\u0942\u0930\u094D\u0923 \u0938\u093E\u0927\u093F\u0915\u093E \u0925\u0940\u0902?",
+      textEnglish: "The medieval saint Meerabai was an ecstatic devotee of which Lord?",
+      optionsHindi: ["\u0936\u094D\u0930\u0940 \u0915\u0943\u0937\u094D\u0923", "\u0936\u094D\u0930\u0940 \u0930\u093E\u092E", "\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935", "\u0939\u0928\u0941\u092E\u093E\u0928 \u091C\u0940"],
+      optionsEnglish: ["Lord Krishna", "Lord Rama", "Lord Shiva", "Hanuman Ji"],
+      correctHindi: "\u0936\u094D\u0930\u0940 \u0915\u0943\u0937\u094D\u0923",
+      correctEnglish: "Lord Krishna",
+      explanationHindi: "\u092E\u0940\u0930\u093E\u092C\u093E\u0908 \u0936\u094D\u0930\u0940 \u0915\u0943\u0937\u094D\u0923 \u0915\u094B \u0939\u0940 \u0905\u092A\u0928\u093E \u0938\u092C \u0915\u0941\u091B (\u0917\u093F\u0930\u0927\u0930 \u0917\u094B\u092A\u093E\u0932) \u092E\u093E\u0928\u0915\u0930 \u092A\u0926 \u0914\u0930 \u092D\u091C\u0928\u094B\u0902 \u0915\u0947 \u092E\u093E\u0927\u094D\u092F\u092E \u0938\u0947 \u0909\u0928\u0915\u0940 \u092D\u0915\u094D\u0924\u093F \u092E\u0947\u0902 \u0932\u0940\u0928 \u0930\u0939\u0924\u0940 \u0925\u0940\u0902\u0964",
+      explanationEnglish: "Meerabai was a Rajput princess who renounced royal life to sing ecstatic praises of Lord Krishna.",
+      ref: "Saints & Gurus"
+    },
+    {
+      textHindi: "\u091B\u0924\u094D\u0930\u092A\u0924\u093F \u0936\u093F\u0935\u093E\u091C\u0940 \u092E\u0939\u093E\u0930\u093E\u091C \u0915\u0947 \u0906\u0927\u094D\u092F\u093E\u0924\u094D\u092E\u093F\u0915 \u092E\u093E\u0930\u094D\u0917\u0926\u0930\u094D\u0936\u0915 \u0914\u0930 '\u0926\u093E\u0938\u092C\u094B\u0927' \u0915\u0947 \u0930\u091A\u092F\u093F\u0924\u093E \u0915\u094C\u0928 \u0938\u0947 \u092E\u0939\u093E\u0928 \u0938\u092E\u0930\u094D\u0925 \u0938\u0902\u0924 \u0925\u0947?",
+      textEnglish: "Who was the spiritual guide of Chhatrapati Shivaji Maharaj and composer of the spiritual text 'Dasbodh'?",
+      optionsHindi: ["\u0938\u092E\u0930\u094D\u0925 \u0930\u093E\u092E\u0926\u093E\u0938", "\u0938\u0902\u0924 \u091C\u094D\u091E\u093E\u0928\u0947\u0936\u094D\u0935\u0930", "\u0938\u0902\u0924 \u0924\u0941\u0915\u093E\u0930\u093E\u092E", "\u0938\u0902\u0924 \u090F\u0915\u0928\u093E\u0925"],
+      optionsEnglish: ["Samarth Ramdas", "Saint Dnyaneshwar", "Saint Tukaram", "Saint Eknath"],
+      correctHindi: "\u0938\u092E\u0930\u094D\u0925 \u0930\u093E\u092E\u0926\u093E\u0938",
+      correctEnglish: "Samarth Ramdas",
+      explanationHindi: "\u092E\u0939\u093E\u0930\u093E\u0937\u094D\u091F\u094D\u0930 \u0915\u0947 \u092E\u0939\u093E\u0928 \u0938\u092E\u0930\u094D\u0925 \u0917\u0941\u0930\u0941 \u0930\u093E\u092E\u0926\u093E\u0938 \u091C\u0940 \u0936\u093F\u0935\u093E\u091C\u0940 \u092E\u0939\u093E\u0930\u093E\u091C \u0915\u0947 \u0917\u0941\u0930\u0941 \u0925\u0947, \u091C\u093F\u0928\u094D\u0939\u094B\u0902\u0928\u0947 '\u0926\u093E\u0938\u092C\u094B\u0927' \u0914\u0930 '\u092E\u0928\u093E\u091A\u0947 \u0936\u094D\u0932\u094B\u0915' \u0915\u0940 \u0930\u091A\u0928\u093E \u0915\u0940\u0964",
+      explanationEnglish: "Samarth Ramdas was the highly revered Marathi saint who served as the preceptor of Shivaji Maharaj.",
+      ref: "Saints & Gurus"
+    },
+    {
+      textHindi: "\u092E\u0939\u093E\u0924\u094D\u092E\u093E \u0917\u093E\u0902\u0927\u0940 \u0915\u093E \u0905\u0924\u094D\u092F\u0902\u0924 \u092A\u094D\u0930\u093F\u092F \u092D\u091C\u0928 '\u0935\u0948\u0937\u094D\u0923\u0935 \u091C\u0928 \u0924\u094B \u0924\u0947\u0928\u0947 \u0915\u0939\u093F\u092F\u0947' \u0915\u0947 \u092E\u0942\u0932 \u0930\u091A\u092F\u093F\u0924\u093E \u0915\u094C\u0928 \u0938\u0947 \u0917\u0941\u091C\u0930\u093E\u0924\u0940 \u0938\u0902\u0924 \u0925\u0947?",
+      textEnglish: "Who was the original composer of Mahatma Gandhi's favorite bhajan 'Vaishnava Jana To'?",
+      optionsHindi: ["\u0928\u0930\u0938\u093F\u0902\u0939 \u092E\u0947\u0939\u0924\u093E", "\u0938\u0902\u0924 \u091C\u094D\u091E\u093E\u0928\u0947\u0936\u094D\u0935\u0930", "\u0938\u0902\u0924 \u0915\u092C\u0940\u0930", "\u091A\u0948\u0924\u0928\u094D\u092F \u092E\u0939\u093E\u092A\u094D\u0930\u092D\u0941"],
+      optionsEnglish: ["Narsinh Mehta", "Saint Dnyaneshwar", "Saint Kabir", "Chaitanya Mahaprabhu"],
+      correctHindi: "\u0928\u0930\u0938\u093F\u0902\u0939 \u092E\u0947\u0939\u0924\u093E",
+      correctEnglish: "Narsinh Mehta",
+      explanationHindi: "\u092D\u0915\u094D\u0924\u093F\u0915\u093E\u0932\u0940\u0928 \u0917\u0941\u091C\u0930\u093E\u0924\u0940 \u0915\u0935\u093F \u0938\u0902\u0924 \u0928\u0930\u0938\u093F\u0902\u0939 \u092E\u0947\u0939\u0924\u093E (\u0928\u0930\u0938\u0940 \u092D\u0917\u0924) \u0928\u0947 \u0907\u0938 \u092A\u093E\u0935\u0928 \u092D\u091C\u0928 \u0915\u0940 \u0930\u091A\u0928\u093E \u0915\u0940 \u0925\u0940, \u091C\u093F\u0938\u092E\u0947\u0902 \u0938\u091A\u094D\u091A\u0947 \u092D\u0915\u094D\u0924 \u0915\u0947 \u0932\u0915\u094D\u0937\u0923 \u092C\u0924\u093E\u090F \u0917\u090F \u0939\u0948\u0902\u0964",
+      explanationEnglish: "The 15th-century poet-saint Narsinh Mehta composed this beautiful devotional hymn.",
+      ref: "Saints & Gurus"
+    }
+  ];
+  const templesTemplates = [
+    {
+      textHindi: "\u0909\u0924\u094D\u0924\u0930\u093E\u0916\u0902\u0921 \u0915\u0947 \u0917\u0922\u093C\u0935\u093E\u0932 \u0939\u093F\u092E\u093E\u0932\u092F \u092E\u0947\u0902 \u0938\u094D\u0925\u093F\u0924 \u0915\u0947\u0926\u093E\u0930\u0928\u093E\u0925 \u091C\u094D\u092F\u094B\u0924\u093F\u0930\u094D\u0932\u093F\u0902\u0917 \u092E\u0902\u0926\u093F\u0930 \u0915\u093F\u0938 \u0928\u0926\u0940 \u0915\u0947 \u0928\u093F\u0915\u091F \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0939\u0948?",
+      textEnglish: "The sacred Kedarnath Jyotirlinga temple in Uttarakhand is situated near which river?",
+      optionsHindi: ["\u092E\u0902\u0926\u093E\u0915\u093F\u0928\u0940 \u0928\u0926\u0940", "\u0905\u0932\u0915\u0928\u0902\u0926\u093E \u0928\u0926\u0940", "\u092D\u093E\u0917\u0940\u0930\u0925\u0940 \u0928\u0926\u0940", "\u092F\u092E\u0941\u0928\u093E"],
+      optionsEnglish: ["Mandakini River", "Alaknanda River", "Bhagirathi River", "Yamuna"],
+      correctHindi: "\u092E\u0902\u0926\u093E\u0915\u093F\u0928\u0940 \u0928\u0926\u0940",
+      correctEnglish: "Mandakini River",
+      explanationHindi: "\u0915\u0947\u0926\u093E\u0930\u0928\u093E\u0925 \u092E\u0902\u0926\u093F\u0930 \u092E\u0902\u0926\u093E\u0915\u093F\u0928\u0940 \u0928\u0926\u0940 \u0915\u0947 \u0924\u091F \u092A\u0930 \u0938\u094D\u0925\u093F\u0924 \u0939\u0948, \u091C\u094B \u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0915\u093E \u0905\u0924\u094D\u092F\u0902\u0924 \u092E\u0939\u093F\u092E\u093E\u092E\u092F \u0927\u093E\u092E \u0939\u0948\u0964",
+      explanationEnglish: "Kedarnath temple is located on the bank of the Mandakini river amidst the majestic Himalayas.",
+      ref: "Sacred Temples"
+    },
+    {
+      textHindi: "\u092D\u093E\u0930\u0924 \u0915\u0947 \u0926\u0915\u094D\u0937\u093F\u0923\u0924\u092E \u091B\u094B\u0930 \u0930\u093E\u092E\u0947\u0936\u094D\u0935\u0930\u092E \u0926\u094D\u0935\u0940\u092A \u092A\u0930 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u091C\u094D\u092F\u094B\u0924\u093F\u0930\u094D\u0932\u093F\u0902\u0917 \u092E\u0902\u0926\u093F\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948 \u091C\u093F\u0938\u0915\u0940 \u0938\u094D\u0925\u093E\u092A\u0928\u093E \u0938\u094D\u0935\u092F\u0902 \u092A\u094D\u0930\u092D\u0941 \u0936\u094D\u0930\u0940 \u0930\u093E\u092E \u0928\u0947 \u0915\u0940 \u0925\u0940?",
+      textEnglish: "What is the name of the Jyotirlinga temple on Rameswaram island which was established by Lord Rama himself?",
+      optionsHindi: ["\u0930\u093E\u092E\u0928\u093E\u0925\u0938\u094D\u0935\u093E\u092E\u0940 \u092E\u0902\u0926\u093F\u0930", "\u092E\u0932\u094D\u0932\u093F\u0915\u093E\u0930\u094D\u091C\u0941\u0928", "\u0938\u094B\u092E\u0928\u093E\u0925", "\u092D\u0940\u092E\u093E\u0936\u0902\u0915\u0930"],
+      optionsEnglish: ["Ramanathaswamy Temple", "Mallikarjuna", "Somnath", "Bhimashankar"],
+      correctHindi: "\u0930\u093E\u092E\u0928\u093E\u0925\u0938\u094D\u0935\u093E\u092E\u0940 \u092E\u0902\u0926\u093F\u0930",
+      correctEnglish: "Ramanathaswamy Temple",
+      explanationHindi: "\u0930\u093E\u092E\u0947\u0936\u094D\u0935\u0930\u092E \u092E\u0947\u0902 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0930\u093E\u092E\u0928\u093E\u0925\u0938\u094D\u0935\u093E\u092E\u0940 \u092E\u0902\u0926\u093F\u0930 \u092E\u0947\u0902 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0936\u093F\u0935\u0932\u093F\u0902\u0917 \u0915\u0940 \u092A\u0942\u091C\u093E \u0932\u0902\u0915\u093E \u0935\u093F\u091C\u092F \u0938\u0947 \u092A\u0942\u0930\u094D\u0935 \u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940 \u0930\u093E\u092E \u0928\u0947 \u092C\u093E\u0932\u0942 \u0938\u0947 \u092C\u0928\u093E\u0915\u0930 \u0915\u0940 \u0925\u0940\u0964",
+      explanationEnglish: "The Ramanathaswamy Temple houses one of the 12 Jyotirlingas, established by Lord Rama.",
+      ref: "Sacred Temples"
+    },
+    {
+      textHindi: "\u0913\u0921\u093F\u0936\u093E \u0915\u0947 \u0924\u091F\u0940\u092F \u0928\u0917\u0930 \u092A\u0941\u0930\u0940 \u092E\u0947\u0902 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u091C\u0917\u0928\u094D\u0928\u093E\u0925 \u092E\u0902\u0926\u093F\u0930 \u0915\u093F\u0938 \u092D\u0917\u0935\u093E\u0928 \u0915\u094B \u092A\u0942\u0930\u094D\u0923\u0924\u0903 \u0938\u092E\u0930\u094D\u092A\u093F\u0924 \u0939\u0948?",
+      textEnglish: "The world-famous Jagannath Temple in Puri is dedicated to which form of the Supreme Lord?",
+      optionsHindi: ["\u0936\u094D\u0930\u0940 \u0915\u0943\u0937\u094D\u0923, \u092C\u0932\u092D\u0926\u094D\u0930 \u0914\u0930 \u0938\u0941\u092D\u0926\u094D\u0930\u093E", "\u0936\u094D\u0930\u0940 \u0930\u093E\u092E \u0914\u0930 \u0932\u0915\u094D\u0937\u094D\u092E\u0923", "\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935", "\u0935\u093F\u0937\u094D\u0923\u0941 \u0914\u0930 \u0932\u0915\u094D\u0937\u094D\u092E\u0940"],
+      optionsEnglish: ["Lord Krishna, Balabhadra, and Subhadra", "Lord Rama and Lakshmana", "Lord Shiva", "Vishnu and Lakshmi"],
+      correctHindi: "\u0936\u094D\u0930\u0940 \u0915\u0943\u0937\u094D\u0923, \u092C\u0932\u092D\u0926\u094D\u0930 \u0914\u0930 \u0938\u0941\u092D\u0926\u094D\u0930\u093E",
+      correctEnglish: "Lord Krishna, Balabhadra, and Subhadra",
+      explanationHindi: "\u091C\u0917\u0928\u094D\u0928\u093E\u0925 \u092A\u0941\u0930\u0940 \u0927\u093E\u092E \u092E\u0947\u0902 \u092D\u0917\u0935\u093E\u0928 \u0915\u0943\u0937\u094D\u0923 (\u091C\u0917\u0928\u094D\u0928\u093E\u0925), \u0909\u0928\u0915\u0947 \u092C\u0921\u093C\u0947 \u092D\u093E\u0908 \u092C\u0932\u092D\u0926\u094D\u0930 \u0914\u0930 \u092C\u0939\u0928 \u0938\u0941\u092D\u0926\u094D\u0930\u093E \u0915\u0940 \u0915\u093E\u0937\u094D\u0920 \u0915\u0940 \u092E\u0942\u0930\u094D\u0924\u093F\u092F\u093E\u0901 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Puri Jagannath temple worships Lord Krishna along with his siblings Balabhadra and Subhadra in wooden deities.",
+      ref: "Sacred Temples"
+    },
+    {
+      textHindi: "\u0913\u0921\u093F\u0936\u093E \u0915\u0947 \u0915\u094B\u0923\u093E\u0930\u094D\u0915 \u092E\u0947\u0902 \u0938\u094D\u0925\u093F\u0924 \u0938\u0942\u0930\u094D\u092F \u092E\u0902\u0926\u093F\u0930 \u0915\u0940 \u0935\u093E\u0938\u094D\u0924\u0941\u0915\u0932\u093E \u0915\u093F\u0938 \u0935\u093F\u0936\u093F\u0937\u094D\u091F \u0930\u0942\u092A \u092E\u0947\u0902 \u092C\u0928\u0940 \u0939\u0941\u0908 \u0939\u0948?",
+      textEnglish: "The Sun Temple in Konark, Odisha is uniquely built in the architectural shape of what?",
+      optionsHindi: ["\u090F\u0915 \u0935\u093F\u0936\u093E\u0932 \u0930\u0925 (A massive chariot)", "\u090F\u0915 \u0915\u092E\u0932 \u0915\u093E \u092B\u0942\u0932", "\u090F\u0915 \u0924\u094D\u0930\u093F\u0936\u0942\u0932", "\u090F\u0915 \u0928\u094C\u0915\u093E"],
+      optionsEnglish: ["A massive chariot", "A lotus flower", "A trident", "A boat"],
+      correctHindi: "\u090F\u0915 \u0935\u093F\u0936\u093E\u0932 \u0930\u0925 (A massive chariot)",
+      correctEnglish: "A massive chariot",
+      explanationHindi: "\u0915\u094B\u0923\u093E\u0930\u094D\u0915 \u0915\u093E \u0938\u0942\u0930\u094D\u092F \u092E\u0902\u0926\u093F\u0930 \u0938\u093E\u0924 \u0918\u094B\u0921\u093C\u094B\u0902 \u0914\u0930 24 \u092A\u0939\u093F\u092F\u094B\u0902 \u0935\u093E\u0932\u0947 \u0938\u0942\u0930\u094D\u092F \u0926\u0947\u0935 \u0915\u0947 \u0935\u093F\u0936\u093E\u0932 \u0930\u0925 \u0915\u0947 \u0930\u0942\u092A \u092E\u0947\u0902 \u0928\u0915\u094D\u0915\u093E\u0936\u0940\u0926\u093E\u0930 \u092A\u0924\u094D\u0925\u0930\u094B\u0902 \u0938\u0947 \u092C\u0928\u093E \u0939\u0948\u0964",
+      explanationEnglish: "The temple is conceptualized as a colossal chariot of the Sun God, decorated with stone wheels and horses.",
+      ref: "Sacred Temples"
+    },
+    {
+      textHindi: "\u0938\u0902\u0938\u093E\u0930 \u0915\u0940 \u0938\u092C\u0938\u0947 \u092A\u094D\u0930\u093E\u091A\u0940\u0928 \u091C\u0940\u0935\u093F\u0924 \u0938\u093E\u0902\u0938\u094D\u0915\u0943\u0924\u093F\u0915 \u0928\u0917\u0930\u0940 \u0935\u093E\u0930\u093E\u0923\u0938\u0940 \u092E\u0947\u0902 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u092A\u094D\u0930\u0927\u093E\u0928 \u0936\u093F\u0935 \u092E\u0902\u0926\u093F\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948?",
+      textEnglish: "What is the name of the primary Shiva temple in Varanasi, one of the oldest living cities in the world?",
+      optionsHindi: ["\u0915\u093E\u0936\u0940 \u0935\u093F\u0936\u094D\u0935\u0928\u093E\u0925 \u092E\u0902\u0926\u093F\u0930", "\u092E\u0915\u093E\u0932\u0947\u0936\u094D\u0935\u0930", "\u0924\u094D\u0930\u092F\u092E\u094D\u092C\u0915\u0947\u0936\u094D\u0935\u0930", "\u0918\u0943\u0937\u094D\u0923\u0947\u0936\u094D\u0935\u0930"],
+      optionsEnglish: ["Kashi Vishwanath Temple", "Mahakaleshwar", "Trimbakeshwar", "Grishneshwar"],
+      correctHindi: "\u0915\u093E\u0936\u0940 \u0935\u093F\u0936\u094D\u0935\u0928\u093E\u0925 \u092E\u0902\u0926\u093F\u0930",
+      correctEnglish: "Kashi Vishwanath Temple",
+      explanationHindi: "\u0935\u093E\u0930\u093E\u0923\u0938\u0940 (\u0915\u093E\u0936\u0940) \u092E\u0947\u0902 \u0917\u0902\u0917\u093E \u0928\u0926\u0940 \u0915\u0947 \u092A\u0936\u094D\u091A\u093F\u092E\u0940 \u0924\u091F \u092A\u0930 \u0938\u094D\u0925\u093E\u092A\u093F\u0924 \u0915\u093E\u0936\u0940 \u0935\u093F\u0936\u094D\u0935\u0928\u093E\u0925 \u091C\u094D\u092F\u094B\u0924\u093F\u0930\u094D\u0932\u093F\u0902\u0917 \u0936\u093F\u0935 \u0915\u093E \u092A\u0930\u092E \u092A\u093E\u0935\u0928 \u0928\u093F\u0935\u093E\u0938 \u092E\u093E\u0928\u093E \u091C\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "Kashi Vishwanath Temple is the spiritual crown of Varanasi, housing the sacred Jyotirlinga of Lord Shiva.",
+      ref: "Sacred Temples"
+    }
+  ];
+  const cultureTemplates = [
+    {
+      textHindi: "\u0938\u0928\u093E\u0924\u0928 \u091C\u0940\u0935\u0928 \u0936\u0948\u0932\u0940 \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u092E\u093E\u0928\u0935 \u091C\u0940\u0935\u0928 \u0915\u0947 \u091A\u093E\u0930 \u092A\u0941\u0930\u0941\u0937\u093E\u0930\u094D\u0925 \u0915\u094C\u0928 \u0938\u0947 \u0939\u0948\u0902?",
+      textEnglish: "According to Sanatan lifestyle, what are the four goals/pursuits (Purusharthas) of human life?",
+      optionsHindi: ["\u0927\u0930\u094D\u092E, \u0905\u0930\u094D\u0925, \u0915\u093E\u092E, \u092E\u094B\u0915\u094D\u0937", "\u0938\u0924\u094D\u092F, \u0905\u0939\u093F\u0902\u0938\u093E, \u0924\u092A, \u0926\u093E\u0928", "\u092C\u094D\u0930\u0939\u094D\u092E\u091A\u0930\u094D\u092F, \u0917\u0943\u0939\u0938\u094D\u0925, \u0935\u093E\u0928\u092A\u094D\u0930\u0938\u094D\u0925, \u0938\u0902\u0928\u094D\u092F\u093E\u0938", "\u090B\u0917\u094D\u0935\u0947\u0926, \u092F\u091C\u0941\u0930\u094D\u0935\u0947\u0926, \u0938\u093E\u092E\u0935\u0947\u0926, \u0905\u0925\u0930\u094D\u0935\u0935\u0947\u0926"],
+      optionsEnglish: ["Dharma, Artha, Kama, Moksha", "Satya, Ahimsa, Tapa, Dana", "Brahmacharya, Grihastha, Vanaprastha, Sanyasa", "Rigveda, Yajurveda, Samaveda, Atharvaveda"],
+      correctHindi: "\u0927\u0930\u094D\u092E, \u0905\u0930\u094D\u0925, \u0915\u093E\u092E, \u092E\u094B\u0915\u094D\u0937",
+      correctEnglish: "Dharma, Artha, Kama, Moksha",
+      explanationHindi: "\u0938\u0928\u093E\u0924\u0928 \u0927\u0930\u094D\u092E \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u091C\u0940\u0935\u0928 \u0915\u0947 \u091A\u093E\u0930 \u092E\u0941\u0916\u094D\u092F \u0909\u0926\u094D\u0926\u0947\u0936\u094D\u092F \u0939\u0948\u0902: \u0927\u0930\u094D\u092E (\u0928\u0948\u0924\u093F\u0915\u0924\u093E), \u0905\u0930\u094D\u0925 (\u0938\u0902\u0938\u093E\u0927\u0928), \u0915\u093E\u092E (\u0915\u093E\u092E\u0928\u093E\u090F\u0902) \u0914\u0930 \u092E\u094B\u0915\u094D\u0937 (\u092E\u0941\u0915\u094D\u0924\u093F)\u0964",
+      explanationEnglish: "The four Purusharthas define the comprehensive framework of a balanced, prosperous, and liberated life.",
+      ref: "Indian Culture"
+    },
+    {
+      textHindi: "\u0939\u093F\u0902\u0926\u0942 \u0938\u0902\u0938\u094D\u0915\u0943\u0924\u093F \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u092E\u0928\u0941\u0937\u094D\u092F \u0915\u0947 \u091C\u0928\u094D\u092E \u0938\u0947 \u092E\u0943\u0924\u094D\u092F\u0941 \u0924\u0915 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u092E\u0941\u0916\u094D\u092F \u0938\u0902\u0938\u094D\u0915\u093E\u0930 (\u0938\u0902\u0938\u094D\u0915\u093E\u0930 \u0938\u093F\u0926\u094D\u0927\u093E\u0902\u0924) \u092E\u093E\u0928\u0947 \u0917\u090F \u0939\u0948\u0902?",
+      textEnglish: "According to Hindu culture, how many primary life sacraments (Sanskaras) are performed from birth to death?",
+      optionsHindi: ["16 (\u0937\u094B\u0921\u0936 \u0938\u0902\u0938\u094D\u0915\u093E\u0930)", "10", "12", "108"],
+      optionsEnglish: ["16 (Shodasha Sanskaras)", "10", "12", "108"],
+      correctHindi: "16 (\u0937\u094B\u0921\u0936 \u0938\u0902\u0938\u094D\u0915\u093E\u0930)",
+      correctEnglish: "16 (Shodasha Sanskaras)",
+      explanationHindi: "\u092E\u093E\u0928\u0935 \u091C\u0940\u0935\u0928 \u0915\u094B \u0936\u0941\u0926\u094D\u0927, \u0938\u0941\u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u0914\u0930 \u0909\u0928\u094D\u0928\u0924 \u092C\u0928\u093E\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0917\u0930\u094D\u092D\u0927\u093E\u0928 \u0938\u0947 \u0905\u0902\u0924\u094D\u092F\u0947\u0937\u094D\u091F\u093F (\u092E\u0943\u0924\u094D\u092F\u0941) \u0924\u0915 \u0915\u0941\u0932 16 \u092E\u0941\u0916\u094D\u092F \u0938\u0902\u0938\u094D\u0915\u093E\u0930 \u0915\u093F\u090F \u091C\u093E\u0924\u0947 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "The Shodasha Sanskaras are 16 fundamental stages and rituals that sanctify a human journey in Vedic tradition.",
+      ref: "Indian Culture"
+    },
+    {
+      textHindi: "\u0935\u0948\u0926\u093F\u0915 \u0935\u0930\u094D\u0923\u093E\u0936\u094D\u0930\u092E \u0935\u094D\u092F\u0935\u0938\u094D\u0925\u093E \u0915\u0947 \u0905\u0902\u0924\u0930\u094D\u0917\u0924 \u091C\u0940\u0935\u0928 \u0915\u0947 \u092A\u094D\u0930\u0925\u092E 25 \u0935\u0930\u094D\u0937\u094B\u0902 \u0915\u0940 \u0905\u0935\u0927\u093F \u0915\u093F\u0938 \u0906\u0936\u094D\u0930\u092E \u0915\u0947 \u0905\u0927\u0940\u0928 \u092E\u093E\u0928\u0940 \u0917\u0908 \u0939\u0948?",
+      textEnglish: "Under the Vedic Ashrama system, which stage of life is prescribed for the first 25 years of age?",
+      optionsHindi: ["\u092C\u094D\u0930\u0939\u094D\u092E\u091A\u0930\u094D\u092F \u0906\u0936\u094D\u0930\u092E", "\u0917\u0943\u0939\u0938\u094D\u0925 \u0906\u0936\u094D\u0930\u092E", "\u0935\u093E\u0928\u092A\u094D\u0930\u0938\u094D\u0925 \u0906\u0936\u094D\u0930\u092E", "\u0938\u0902\u0928\u094D\u092F\u093E\u0938 \u0906\u0936\u094D\u0930\u092E"],
+      optionsEnglish: ["Brahmacharya Ashrama", "Grihastha Ashrama", "Vanaprastha Ashrama", "Sanyasa Ashrama"],
+      correctHindi: "\u092C\u094D\u0930\u0939\u094D\u092E\u091A\u0930\u094D\u092F \u0906\u0936\u094D\u0930\u092E",
+      correctEnglish: "Brahmacharya Ashrama",
+      explanationHindi: "\u091C\u0940\u0935\u0928 \u0915\u0947 \u092A\u094D\u0930\u0925\u092E \u0968\u096B \u0935\u0930\u094D\u0937 \u0936\u093F\u0915\u094D\u0937\u093E, \u0938\u0902\u092F\u092E \u0914\u0930 \u091A\u0930\u093F\u0924\u094D\u0930 \u0928\u093F\u0930\u094D\u092E\u093E\u0923 \u0939\u0947\u0924\u0941 \u092C\u094D\u0930\u0939\u094D\u092E\u091A\u0930\u094D\u092F \u0906\u0936\u094D\u0930\u092E \u0915\u0947 \u0905\u0902\u0924\u0930\u094D\u0917\u0924 \u0917\u0941\u0930\u0941 \u0915\u0947 \u0938\u093E\u0928\u094D\u0928\u093F\u0927\u094D\u092F \u092E\u0947\u0902 \u0935\u094D\u092F\u0924\u0940\u0924 \u0939\u094B\u0924\u0947 \u0925\u0947\u0964",
+      explanationEnglish: "Brahmacharya is the student stage of life, dedicated to learning, celibacy, and character development.",
+      ref: "Indian Culture"
+    },
+    {
+      textHindi: "\u092E\u0939\u093E\u0924\u094D\u092E\u093E \u0917\u093E\u0902\u0927\u0940 \u0914\u0930 \u090B\u0937\u093F\u092F\u094B\u0902 \u0926\u094D\u0935\u093E\u0930\u093E \u092A\u094D\u0930\u0924\u093F\u092A\u093E\u0926\u093F\u0924 '\u0905\u0939\u093F\u0902\u0938\u093E' \u0915\u093E \u0935\u093E\u0938\u094D\u0924\u0935\u093F\u0915 \u0914\u0930 \u0926\u093E\u0930\u094D\u0936\u0928\u093F\u0915 \u0905\u0930\u094D\u0925 \u0915\u094D\u092F\u093E \u0939\u0948?",
+      textEnglish: "What is the true and philosophical meaning of 'Ahims\u0101' as propounded by sages?",
+      optionsHindi: ["\u092E\u0928, \u0935\u091A\u0928 \u0914\u0930 \u0915\u0930\u094D\u092E \u0938\u0947 \u0915\u093F\u0938\u0940 \u0915\u094B \u0915\u0937\u094D\u091F \u0928 \u0926\u0947\u0928\u093E", "\u0915\u0947\u0935\u0932 \u0936\u093E\u0930\u0940\u0930\u093F\u0915 \u091A\u094B\u091F \u0928 \u092A\u0939\u0941\u0902\u091A\u093E\u0928\u093E", "\u092F\u0941\u0926\u094D\u0927 \u0938\u0947 \u092D\u093E\u0917 \u091C\u093E\u0928\u093E", "\u0915\u092E\u091C\u094B\u0930 \u092C\u0928\u0947 \u0930\u0939\u0928\u093E"],
+      optionsEnglish: ["To not cause harm by thoughts, words, or actions", "Only avoiding physical injury", "Fleeing from battle", "Staying weak and passive"],
+      correctHindi: "\u092E\u0928, \u0935\u091A\u0928 \u0914\u0930 \u0915\u0930\u094D\u092E \u0938\u0947 \u0915\u093F\u0938\u0940 \u0915\u094B \u0915\u0937\u094D\u091F \u0928 \u0926\u0947\u0928\u093E",
+      correctEnglish: "To not cause harm by thoughts, words, or actions",
+      explanationHindi: "\u0935\u093E\u0938\u094D\u0924\u0935\u093F\u0915 \u0905\u0939\u093F\u0902\u0938\u093E \u092E\u0928, \u0935\u093E\u0923\u0940 \u0914\u0930 \u0936\u093E\u0930\u0940\u0930\u093F\u0915 \u0938\u094D\u0924\u0930 \u092A\u0930 \u0915\u093F\u0938\u0940 \u092D\u0940 \u091C\u0940\u0935 \u0915\u094B \u091A\u094B\u091F \u0928 \u092A\u0939\u0941\u0902\u091A\u093E\u0928\u0947 \u0915\u093E \u0915\u0930\u0941\u0923\u093E\u092E\u092F \u0938\u093F\u0926\u094D\u0927\u093E\u0902\u0924 \u0939\u0948\u0964",
+      explanationEnglish: "Ahims\u0101 is a positive virtue of active harmlessness and universal compassion in thoughts, speech, and deeds.",
+      ref: "Indian Culture"
+    },
+    {
+      textHindi: "\u092E\u0939\u094B\u092A\u0928\u093F\u0937\u0926 \u0915\u093E \u092A\u094D\u0930\u0938\u093F\u0926\u094D\u0927 \u0935\u093E\u0915\u094D\u092F '\u0935\u0938\u0941\u0927\u0948\u0935 \u0915\u0941\u091F\u0941\u092E\u094D\u092C\u0915\u092E\u094D' \u0938\u0902\u092A\u0942\u0930\u094D\u0923 \u0935\u093F\u0936\u094D\u0935 \u0915\u0947 \u092C\u093E\u0930\u0947 \u092E\u0947\u0902 \u0915\u094D\u092F\u093E \u0926\u0943\u0937\u094D\u091F\u093F\u0915\u094B\u0923 \u0930\u0916\u0924\u093E \u0939\u0948?",
+      textEnglish: "What perspective does the Upanishadic phrase 'Vasudhaiva Kutumbakam' hold towards the world?",
+      optionsHindi: ["\u0938\u0902\u092A\u0942\u0930\u094D\u0923 \u0935\u093F\u0936\u094D\u0935 \u0939\u0940 \u0939\u092E\u093E\u0930\u093E \u092A\u0930\u093F\u0935\u093E\u0930 \u0939\u0948", "\u0915\u0947\u0935\u0932 \u0905\u092A\u0928\u093E \u0926\u0947\u0936 \u0936\u094D\u0930\u0947\u0937\u094D\u0920 \u0939\u0948", "\u0938\u0902\u0938\u093E\u0930 \u0926\u0941\u0916\u094B\u0902 \u0915\u093E \u0918\u0930 \u0939\u0948", "\u092D\u094C\u0924\u093F\u0915 \u0938\u0902\u092A\u0926\u093E \u0938\u092C \u0915\u0941\u091B \u0939\u0948"],
+      optionsEnglish: ["The entire world is one single family", "Only one's nation is supreme", "The world is full of sorrow", "Material wealth is everything"],
+      correctHindi: "\u0938\u0902\u092A\u0942\u0930\u094D\u0923 \u0935\u093F\u0936\u094D\u0935 \u0939\u0940 \u0939\u092E\u093E\u0930\u093E \u092A\u0930\u093F\u0935\u093E\u0930 \u0939\u0948",
+      correctEnglish: "The entire world is one single family",
+      explanationHindi: "'\u0935\u0938\u0941\u0927\u093E \u090F\u0935 \u0915\u0941\u091F\u0941\u092E\u094D\u092C\u0915\u092E\u094D' \u0915\u093E \u0905\u0930\u094D\u0925 \u0939\u0948 \u092A\u0943\u0925\u094D\u0935\u0940 \u0915\u0947 \u0938\u092E\u0938\u094D\u0924 \u092A\u094D\u0930\u093E\u0923\u0940 \u0939\u092E\u093E\u0930\u0947 \u092A\u0930\u093F\u0935\u093E\u0930 \u0915\u0947 \u0938\u0926\u0938\u094D\u092F \u0939\u0948\u0902, \u091C\u094B \u0938\u0928\u093E\u0924\u0928 \u0938\u0902\u0938\u094D\u0915\u0943\u0924\u093F \u0915\u0940 \u0909\u0926\u093E\u0930\u0924\u093E \u0926\u0930\u094D\u0936\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "This golden maxim declares that the whole cosmos is interconnected as one unified, harmonious family.",
+      ref: "Indian Culture"
+    }
+  ];
+  const festivalsTemplates = [
+    {
+      textHindi: "\u0926\u0940\u092A\u094B\u0902 \u0915\u093E \u092A\u093E\u0935\u0928 \u0909\u0924\u094D\u0938\u0935 \u0926\u0940\u092A\u093E\u0935\u0932\u0940 \u0915\u093F\u0938 \u0939\u093F\u0902\u0926\u0942 \u0924\u093F\u0925\u093F \u0915\u094B \u0939\u0930\u094D\u0937\u094B\u0932\u094D\u0932\u093E\u0938 \u0915\u0947 \u0938\u093E\u0925 \u092E\u0928\u093E\u092F\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "Diwali, the festival of lights, is celebrated on which Hindu lunar calendar day?",
+      optionsHindi: ["\u0915\u093E\u0930\u094D\u0924\u093F\u0915 \u0905\u092E\u093E\u0935\u0938\u094D\u092F\u093E (Kartika Amavasya)", "\u0915\u093E\u0930\u094D\u0924\u093F\u0915 \u092A\u0942\u0930\u094D\u0923\u093F\u092E\u093E", "\u0906\u0936\u094D\u0935\u093F\u0928 \u092A\u0942\u0930\u094D\u0923\u093F\u092E\u093E", "\u092B\u093E\u0932\u094D\u0917\u0941\u0928 \u0905\u092E\u093E\u0935\u0938\u094D\u092F\u093E"],
+      optionsEnglish: ["Kartika Amavasya", "Kartika Purnima", "Ashvina Purnima", "Phalguna Amavasya"],
+      correctHindi: "\u0915\u093E\u0930\u094D\u0924\u093F\u0915 \u0905\u092E\u093E\u0935\u0938\u094D\u092F\u093E (Kartika Amavasya)",
+      correctEnglish: "Kartika Amavasya",
+      explanationHindi: "\u0915\u093E\u0930\u094D\u0924\u093F\u0915 \u092E\u093E\u0938 \u0915\u0940 \u0905\u092E\u093E\u0935\u0938\u094D\u092F\u093E \u0915\u0947 \u0917\u0939\u0928 \u0905\u0902\u0927\u0915\u093E\u0930 \u0915\u094B \u092E\u093F\u091F\u093E\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u092A\u094D\u0930\u092D\u0941 \u0936\u094D\u0930\u0940 \u0930\u093E\u092E \u0915\u0947 \u0905\u092F\u094B\u0927\u094D\u092F\u093E \u0906\u0917\u092E\u0928 \u0915\u0940 \u0938\u094D\u092E\u0943\u0924\u093F \u092E\u0947\u0902 \u0926\u0940\u092A \u091C\u0932\u093E\u090F \u091C\u093E\u0924\u0947 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Diwali falls on the darkest night (Amavasya) of Kartika month to welcome Lord Rama back to Ayodhya.",
+      ref: "Festivals & Vrats"
+    },
+    {
+      textHindi: "\u092E\u0915\u0930 \u0938\u0902\u0915\u094D\u0930\u093E\u0902\u0924\u093F \u0915\u093E \u092A\u093E\u0935\u0928 \u092A\u0930\u094D\u0935 \u0916\u0917\u094B\u0932\u0940\u092F \u0930\u0942\u092A \u0938\u0947 \u0938\u0942\u0930\u094D\u092F \u0915\u0947 \u0915\u093F\u0938 \u0930\u093E\u0936\u093F \u092E\u0947\u0902 \u092A\u094D\u0930\u0935\u0947\u0936 \u0915\u0930\u0928\u0947 \u092A\u0930 \u092E\u0928\u093E\u092F\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "Astronomically, the festival of Makara Sankranti marks the entry of the Sun into which zodiac sign?",
+      optionsHindi: ["\u092E\u0915\u0930 \u0930\u093E\u0936\u093F (Capricorn)", "\u092E\u0947\u0937 \u0930\u093E\u0936\u093F", "\u0927\u0928\u0941 \u0930\u093E\u0936\u093F", "\u0915\u0930\u094D\u0915 \u0930\u093E\u0936\u093F"],
+      optionsEnglish: ["Capricorn (Makara)", "Aries (Mesha)", "Sagittarius (Dhanu)", "Cancer (Karka)"],
+      correctHindi: "\u092E\u0915\u0930 \u0930\u093E\u0936\u093F (Capricorn)",
+      correctEnglish: "Capricorn (Makara)",
+      explanationHindi: "\u0938\u0942\u0930\u094D\u092F \u0915\u0947 \u0927\u0928\u0941 \u0930\u093E\u0936\u093F \u0938\u0947 \u092E\u0915\u0930 \u0930\u093E\u0936\u093F \u092E\u0947\u0902 \u092A\u094D\u0930\u0935\u0947\u0936 \u0915\u0930\u0928\u0947 \u0915\u0940 \u0924\u093F\u0925\u093F \u0915\u094B \u092E\u0915\u0930 \u0938\u0902\u0915\u094D\u0930\u093E\u0902\u0924\u093F \u0915\u0939\u0924\u0947 \u0939\u0948\u0902, \u091C\u093F\u0938\u0938\u0947 \u0938\u0942\u0930\u094D\u092F \u0909\u0924\u094D\u0924\u0930\u093E\u092F\u0923 \u0939\u094B\u0924\u0947 \u0939\u0948\u0902\u0964",
+      explanationEnglish: "Makara Sankranti marks the winter solstice when the sun begins its northward movement (Uttarayana) entering Capricorn.",
+      ref: "Festivals & Vrats"
+    },
+    {
+      textHindi: "\u0936\u093E\u0930\u0926\u0940\u092F \u0914\u0930 \u091A\u0948\u0924\u094D\u0930 \u0928\u0935\u0930\u093E\u0924\u094D\u0930\u093F \u092E\u0947\u0902 \u0928\u094C \u0926\u093F\u0928\u094B\u0902 \u0924\u0915 \u092E\u093E\u0901 \u0926\u0941\u0930\u094D\u0917\u093E \u0915\u0947 \u0915\u093F\u0924\u0928\u0947 \u092A\u093E\u0935\u0928 \u0930\u0942\u092A\u094B\u0902 \u0915\u0940 \u0906\u0930\u093E\u0927\u0928\u093E \u0915\u0940 \u091C\u093E\u0924\u0940 \u0939\u0948?",
+      textEnglish: "How many sacred forms of Goddess Durga are worshipped during the nine nights of Navratri?",
+      optionsHindi: ["9 \u0930\u0942\u092A (\u0928\u0935\u0926\u0941\u0930\u094D\u0917\u093E)", "10 \u0930\u0942\u092A", "7 \u0930\u0942\u092A", "3 \u0930\u0942\u092A"],
+      optionsEnglish: ["9 Forms (Navadurga)", "10 Forms", "7 Forms", "3 Forms"],
+      correctHindi: "9 \u0930\u0942\u092A (\u0928\u0935\u0926\u0941\u0930\u094D\u0917\u093E)",
+      correctEnglish: "9 Forms (Navadurga)",
+      explanationHindi: "\u0928\u0935\u0930\u093E\u0924\u094D\u0930\u093F \u092E\u0947\u0902 \u092E\u093E\u0901 \u0936\u0948\u0932\u092A\u0941\u0924\u094D\u0930\u0940, \u092C\u094D\u0930\u0939\u094D\u092E\u091A\u093E\u0930\u093F\u0923\u0940, \u091A\u0902\u0926\u094D\u0930\u0918\u0902\u091F\u093E \u0938\u0947 \u0932\u0947\u0915\u0930 \u0938\u093F\u0926\u094D\u0927\u093F\u0926\u093E\u0924\u094D\u0930\u0940 \u0924\u0915 \u0928\u094C \u0926\u093F\u0935\u094D\u092F \u0930\u0942\u092A\u094B\u0902 (\u0928\u0935\u0926\u0941\u0930\u094D\u0917\u093E) \u0915\u0940 \u092A\u0942\u091C\u093E \u0939\u094B\u0924\u0940 \u0939\u0948\u0964",
+      explanationEnglish: "The festival of Navratri celebrates the nine distinct, powerful aspects of the Divine Mother Durga.",
+      ref: "Festivals & Vrats"
+    },
+    {
+      textHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940\u0915\u0943\u0937\u094D\u0923 \u0915\u0947 \u092A\u093E\u0935\u0928 \u092A\u094D\u0930\u093E\u0915\u091F\u094D\u092F \u0909\u0924\u094D\u0938\u0935 \u0915\u094B \u0915\u093F\u0938 \u0928\u093E\u092E \u0938\u0947 \u092A\u0942\u0930\u0947 \u0926\u0947\u0936 \u092E\u0947\u0902 \u092E\u0928\u093E\u092F\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "By what name is the divine birth festival of Lord Krishna celebrated across India?",
+      optionsHindi: ["\u0915\u0943\u0937\u094D\u0923 \u091C\u0928\u094D\u092E\u093E\u0937\u094D\u091F\u092E\u0940 (Janmashtami)", "\u0930\u093E\u092E\u0928\u0935\u092E\u0940", "\u0939\u0928\u0941\u092E\u093E\u0928 \u091C\u092F\u0902\u0924\u0940", "\u0917\u0941\u0930\u0941 \u092A\u0942\u0930\u094D\u0923\u093F\u092E\u093E"],
+      optionsEnglish: ["Krishna Janmashtami", "Rama Navami", "Hanuman Jayanti", "Guru Purnima"],
+      correctHindi: "\u0915\u0943\u0937\u094D\u0923 \u091C\u0928\u094D\u092E\u093E\u0937\u094D\u091F\u092E\u0940 (Janmashtami)",
+      correctEnglish: "Krishna Janmashtami",
+      explanationHindi: "\u092D\u093E\u0926\u094D\u0930\u092A\u0926 \u092E\u093E\u0938 \u0915\u0947 \u0915\u0943\u0937\u094D\u0923 \u092A\u0915\u094D\u0937 \u0915\u0940 \u0905\u0937\u094D\u091F\u092E\u0940 \u0924\u093F\u0925\u093F \u0915\u094B \u0930\u094B\u0939\u093F\u0923\u0940 \u0928\u0915\u094D\u0937\u0924\u094D\u0930 \u092E\u0947\u0902 \u092E\u0927\u094D\u092F\u0930\u093E\u0924\u094D\u0930\u093F \u092D\u0917\u0935\u093E\u0928 \u0936\u094D\u0930\u0940 \u0915\u0943\u0937\u094D\u0923 \u0915\u093E \u091C\u0928\u094D\u092E \u0915\u0902\u0938 \u0915\u0947 \u0915\u093E\u0930\u093E\u0917\u093E\u0930 \u092E\u0947\u0902 \u0939\u0941\u0906 \u0925\u093E\u0964",
+      explanationEnglish: "Krishna Janmashtami marks the birth of Lord Krishna in Mathura on the eighth day of Bhadrapada dark fortnight.",
+      ref: "Festivals & Vrats"
+    },
+    {
+      textHindi: "\u0917\u0902\u0917\u093E \u0926\u0936\u0939\u0930\u093E \u0915\u093E \u092A\u093E\u0935\u0928 \u0924\u094D\u092F\u094B\u0939\u093E\u0930 \u0915\u093F\u0938 \u0926\u0947\u0935\u0940 \u0915\u0947 \u0938\u094D\u0935\u0930\u094D\u0917 \u0938\u0947 \u092A\u0943\u0925\u094D\u0935\u0940 \u092A\u0930 \u0905\u0935\u0924\u0930\u0923 \u0915\u0947 \u0909\u092A\u0932\u0915\u094D\u0937\u094D\u092F \u092E\u0947\u0902 \u092E\u0928\u093E\u092F\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "The auspicious festival of Ganga Dussehra is celebrated to mark the descent of which river Goddess to Earth?",
+      optionsHindi: ["\u092E\u093E\u0901 \u0917\u0902\u0917\u093E", "\u092E\u093E\u0901 \u092F\u092E\u0941\u0928\u093E", "\u092E\u093E\u0901 \u0938\u0930\u0938\u094D\u0935\u0924\u0940", "\u092E\u093E\u0901 \u0928\u0930\u094D\u092E\u0926\u093E"],
+      optionsEnglish: ["Goddess Ganga", "Goddess Yamuna", "Goddess Saraswati", "Goddess Narmada"],
+      correctHindi: "\u092E\u093E\u0901 \u0917\u0902\u0917\u093E",
+      correctEnglish: "Goddess Ganga",
+      explanationHindi: "\u091C\u094D\u092F\u0947\u0937\u094D\u0920 \u0936\u0941\u0915\u094D\u0932 \u0926\u0936\u092E\u0940 \u0915\u094B \u0930\u093E\u091C\u093E \u092D\u0917\u0940\u0930\u0925 \u0915\u0940 \u0918\u094B\u0930 \u0924\u092A\u0938\u094D\u092F\u093E \u0915\u0947 \u092B\u0932\u0938\u094D\u0935\u0930\u0942\u092A \u092E\u093E\u0901 \u0917\u0902\u0917\u093E \u0915\u093E \u0938\u094D\u0935\u0930\u094D\u0917 \u0932\u094B\u0915 \u0938\u0947 \u092A\u0943\u0925\u094D\u0935\u0940 \u092A\u0930 \u092A\u093E\u0935\u0928 \u0905\u0935\u0924\u0930\u0923 \u0939\u0941\u0906 \u0925\u093E\u0964",
+      explanationEnglish: "Gengadevi descended from heaven to earth on this day to purify and liberate the ancestors of King Bhagiratha.",
+      ref: "Festivals & Vrats"
+    }
+  ];
+  const yogaTemplates = [
+    {
+      textHindi: "\u092F\u094B\u0917 \u0936\u093E\u0938\u094D\u0924\u094D\u0930 \u0915\u0947 \u0938\u0930\u094D\u0935\u094B\u0924\u094D\u0915\u0943\u0937\u094D\u091F \u0917\u094D\u0930\u0902\u0925 '\u092F\u094B\u0917\u0938\u0942\u0924\u094D\u0930' \u0915\u0947 \u0930\u091A\u092F\u093F\u0924\u093E \u0915\u094C\u0928 \u0938\u0947 \u092E\u0939\u093E\u0928 \u092E\u0939\u0930\u094D\u0937\u093F \u0939\u0948\u0902?",
+      textEnglish: "Who is the great sage behind the foundational scripture 'Yoga Sutras'?",
+      optionsHindi: ["\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u0924\u0902\u091C\u0932\u093F", "\u092E\u0939\u0930\u094D\u0937\u093F \u0915\u092A\u093F\u0932", "\u092E\u0939\u0930\u094D\u0937\u093F \u0915\u0923\u093E\u0926", "\u092E\u0939\u0930\u094D\u0937\u093F \u0935\u094D\u092F\u093E\u0938"],
+      optionsEnglish: ["Maharishi Patanjali", "Maharishi Kapila", "Maharishi Kanada", "Maharishi Vyasa"],
+      correctHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u0924\u0902\u091C\u0932\u093F",
+      correctEnglish: "Maharishi Patanjali",
+      explanationHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u0924\u0902\u091C\u0932\u093F \u0928\u0947 \u092E\u0928 \u0915\u0947 \u0928\u093F\u0917\u094D\u0930\u0939 \u0914\u0930 \u0927\u094D\u092F\u093E\u0928 \u0938\u093E\u0927\u0928\u093E \u0915\u0947 \u0932\u093F\u090F 196 \u092F\u094B\u0917\u0938\u0942\u0924\u094D\u0930\u094B\u0902 \u0915\u0940 \u0930\u091A\u0928\u093E \u0915\u0940 \u0925\u0940\u0964",
+      explanationEnglish: "Sage Patanjali systemized the science of Yoga into 196 aphorisms known as Patanjali Yoga Sutras.",
+      ref: "Yoga Science"
+    },
+    {
+      textHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u0924\u0902\u091C\u0932\u093F \u0926\u094D\u0935\u093E\u0930\u093E \u092A\u094D\u0930\u0924\u093F\u092A\u093E\u0926\u093F\u0924 \u0905\u0937\u094D\u091F\u093E\u0902\u0917 \u092F\u094B\u0917 \u0915\u0947 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u0905\u0902\u0917 (\u0938\u094B\u092A\u093E\u0928) \u0939\u0948\u0902?",
+      textEnglish: "How many limbs make up the system of Ashtanga Yoga as defined by Patanjali?",
+      optionsHindi: ["8 \u0905\u0902\u0917", "5 \u0905\u0902\u0917", "10 \u0905\u0902\u0917", "12 \u0905\u0902\u0917"],
+      optionsEnglish: ["8 Limbs", "5 Limbs", "10 Limbs", "12 Limbs"],
+      correctHindi: "8 \u0905\u0902\u0917",
+      correctEnglish: "8 Limbs",
+      explanationHindi: "\u0905\u0937\u094D\u091F\u093E\u0902\u0917 \u092F\u094B\u0917 \u0915\u0947 \u0906\u0920 \u0905\u0902\u0917 \u0939\u0948\u0902: \u092F\u092E, \u0928\u093F\u092F\u092E, \u0906\u0938\u0928, \u092A\u094D\u0930\u093E\u0923\u093E\u092F\u093E\u092E, \u092A\u094D\u0930\u0924\u094D\u092F\u093E\u0939\u093E\u0930, \u0927\u093E\u0930\u0923\u093E, \u0927\u094D\u092F\u093E\u0928 \u0914\u0930 \u0938\u092E\u093E\u0927\u093F\u0964",
+      explanationEnglish: "Ashtanga Yoga literally means the eight-limbed path to self-control and spiritual liberation.",
+      ref: "Yoga Science"
+    },
+    {
+      textHindi: "\u0905\u0937\u094D\u091F\u093E\u0902\u0917 \u092F\u094B\u0917 \u0915\u093E \u0938\u0930\u094D\u0935\u092A\u094D\u0930\u0925\u092E\u0924\u092E \u0905\u0902\u0917 \u0915\u094C\u0928 \u0938\u093E \u0939\u0948 \u091C\u094B \u0938\u093E\u092E\u093E\u091C\u093F\u0915 \u0928\u0948\u0924\u093F\u0915\u0924\u093E \u0914\u0930 \u0906\u091A\u0930\u0923 \u0938\u0947 \u0938\u0902\u092C\u0902\u0927\u093F\u0924 \u0939\u0948?",
+      textEnglish: "What is the very first limb of Ashtanga Yoga which deals with ethical guidelines?",
+      optionsHindi: ["\u092F\u092E (Yama)", "\u0928\u093F\u092F\u092E (Niyama)", "\u0906\u0938\u0928 (Asana)", "\u092A\u094D\u0930\u093E\u0923\u093E\u092F\u093E\u092E (Pranayama)"],
+      optionsEnglish: ["Yama", "Niyama", "Asana", "Pranayama"],
+      correctHindi: "\u092F\u092E (Yama)",
+      correctEnglish: "Yama",
+      explanationHindi: "\u092A\u0939\u0932\u093E \u0905\u0902\u0917 \u092F\u092E \u0939\u0948, \u091C\u093F\u0938\u0915\u0947 \u0905\u0902\u0924\u0930\u094D\u0917\u0924 \u092A\u093E\u0902\u091A \u0938\u093E\u092E\u093E\u091C\u093F\u0915 \u0935\u094D\u0930\u0924 \u0906\u0924\u0947 \u0939\u0948\u0902: \u0905\u0939\u093F\u0902\u0938\u093E, \u0938\u0924\u094D\u092F, \u0905\u0938\u094D\u0924\u0947\u092F, \u092C\u094D\u0930\u0939\u094D\u092E\u091A\u0930\u094D\u092F \u0914\u0930 \u0905\u092A\u0930\u093F\u0917\u094D\u0930\u0939\u0964",
+      explanationEnglish: "Yama is the first limb of yoga, representing five social restraints: non-violence, truth, non-stealing, celibacy, and non-covetousness.",
+      ref: "Yoga Science"
+    },
+    {
+      textHindi: "\u0936\u094D\u0935\u093E\u0938 \u0914\u0930 \u092A\u094D\u0930\u0936\u094D\u0935\u093E\u0938 \u0915\u0940 \u0917\u0924\u093F \u0915\u094B \u0928\u093F\u092F\u0902\u0924\u094D\u0930\u093F\u0924 \u0935 \u0938\u0902\u0924\u0941\u0932\u093F\u0924 \u0915\u0930\u0928\u0947 \u0915\u0940 \u0915\u094D\u0930\u093F\u092F\u093E \u0915\u094B \u092F\u094B\u0917 \u092E\u0947\u0902 \u0915\u094D\u092F\u093E \u0915\u0939\u0924\u0947 \u0939\u0948\u0902?",
+      textEnglish: "What is the science of breath regulation and control of life-force in Yoga called?",
+      optionsHindi: ["\u092A\u094D\u0930\u093E\u0923\u093E\u092F\u093E\u092E", "\u092A\u094D\u0930\u0924\u094D\u092F\u093E\u0939\u093E\u0930", "\u0927\u093E\u0930\u0923\u093E", "\u0906\u0938\u0928"],
+      optionsEnglish: ["Pranayama", "Pratyahara", "Dharana", "Asana"],
+      correctHindi: "\u092A\u094D\u0930\u093E\u0923\u093E\u092F\u093E\u092E",
+      correctEnglish: "Pranayama",
+      explanationHindi: "\u092A\u094D\u0930\u093E\u0923 (\u091C\u0940\u0935\u0928 \u090A\u0930\u094D\u091C\u093E) \u0914\u0930 \u0906\u092F\u093E\u092E (\u0935\u093F\u0938\u094D\u0924\u093E\u0930/\u0928\u093F\u092F\u0902\u0924\u094D\u0930\u0923) \u092E\u093F\u0932\u0915\u0930 \u092A\u094D\u0930\u093E\u0923\u093E\u092F\u093E\u092E \u0915\u0939\u0932\u093E\u0924\u093E \u0939\u0948, \u091C\u094B \u092E\u0928 \u0915\u094B \u0938\u094D\u0925\u093F\u0930 \u0915\u0930\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "Pranayama is the fourth limb of Ashtanga Yoga, focusing on respiratory control to calm the mind.",
+      ref: "Yoga Science"
+    },
+    {
+      textHindi: "\u0905\u0937\u094D\u091F\u093E\u0902\u0917 \u092F\u094B\u0917 \u0915\u0940 \u0935\u0939 \u0905\u0902\u0924\u093F\u092E \u091A\u0930\u092E \u0905\u0935\u0938\u094D\u0925\u093E \u0915\u094C\u0928 \u0938\u0940 \u0939\u0948 \u091C\u093F\u0938\u092E\u0947\u0902 \u091C\u0940\u0935\u093E\u0924\u094D\u092E\u093E \u092A\u0930\u092E\u093E\u0924\u094D\u092E\u093E \u092E\u0947\u0902 \u0932\u0940\u0928 \u0939\u094B \u091C\u093E\u0924\u0940 \u0939\u0948?",
+      textEnglish: "What is the final, supreme limb of Ashtanga Yoga where the individual consciousness merges with the Divine?",
+      optionsHindi: ["\u0938\u092E\u093E\u0927\u093F (Samadhi)", "\u0927\u094D\u092F\u093E\u0928 (Dhyana)", "\u0927\u093E\u0930\u0923\u093E (Dharana)", "\u092A\u094D\u0930\u0924\u094D\u092F\u093E\u0939\u093E\u0930 (Pratyahara)"],
+      optionsEnglish: ["Samadhi", "Dhyana", "Dharana", "Pratyahara"],
+      correctHindi: "\u0938\u092E\u093E\u0927\u093F (Samadhi)",
+      correctEnglish: "Samadhi",
+      explanationHindi: "\u0905\u0937\u094D\u091F\u093E\u0902\u0917 \u092F\u094B\u0917 \u0915\u093E \u0906\u0920\u0935\u093E\u0902 \u0914\u0930 \u0905\u0902\u0924\u093F\u092E \u0938\u094B\u092A\u093E\u0928 \u0938\u092E\u093E\u0927\u093F \u0939\u0948, \u091C\u0939\u093E\u0902 \u0926\u094D\u0935\u0948\u0924 \u0938\u092E\u093E\u092A\u094D\u0924 \u0939\u094B \u091C\u093E\u0924\u093E \u0939\u0948 \u0914\u0930 \u092A\u0942\u0930\u094D\u0923 \u0936\u093E\u0902\u0924\u093F \u092E\u093F\u0932\u0924\u0940 \u0939\u0948\u0964",
+      explanationEnglish: "Samadhi is the ultimate state of spiritual absorption and complete liberation of the soul.",
+      ref: "Yoga Science"
+    }
+  ];
+  const meditationTemplates = [
+    {
+      textHindi: "\u092E\u093E\u0928\u0935 \u0936\u0930\u0940\u0930 \u0915\u0947 \u0938\u0942\u0915\u094D\u0937\u094D\u092E \u0924\u0902\u0924\u094D\u0930 \u092E\u0947\u0902 \u0930\u0940\u0922\u093C \u0915\u0947 \u0906\u0927\u093E\u0930 \u092A\u0930 \u0915\u094C\u0928 \u0938\u093E \u090A\u0930\u094D\u091C\u093E \u091A\u0915\u094D\u0930 (\u092A\u094D\u0930\u0925\u092E \u091A\u0915\u094D\u0930) \u0938\u094D\u0925\u093F\u0924 \u0939\u0948?",
+      textEnglish: "In the subtle energy system of the human body, which chakra is located at the base of the spine?",
+      optionsHindi: ["\u092E\u0942\u0932\u093E\u0927\u093E\u0930 \u091A\u0915\u094D\u0930 (Muladhara)", "\u0938\u094D\u0935\u093E\u0927\u093F\u0937\u094D\u0920\u093E\u0928 \u091A\u0915\u094D\u0930", "\u092E\u0923\u093F\u092A\u0941\u0930 \u091A\u0915\u094D\u0930", "\u0905\u0928\u093E\u0939\u0924 \u091A\u0915\u094D\u0930"],
+      optionsEnglish: ["Muladhara Chakra (Root)", "Svadhisthana Chakra", "Manipura Chakra", "Anahata Chakra"],
+      correctHindi: "\u092E\u0942\u0932\u093E\u0927\u093E\u0930 \u091A\u0915\u094D\u0930 (Muladhara)",
+      correctEnglish: "Muladhara Chakra (Root)",
+      explanationHindi: "\u0930\u0940\u0922\u093C \u0915\u0947 \u0938\u092C\u0938\u0947 \u0928\u093F\u091A\u0932\u0947 \u0939\u093F\u0938\u094D\u0938\u0947 \u092E\u0947\u0902 \u092E\u0942\u0932\u093E\u0927\u093E\u0930 \u091A\u0915\u094D\u0930 (\u091A\u093E\u0930 \u092A\u0902\u0916\u0941\u0921\u093C\u0940 \u0935\u093E\u0932\u093E \u0915\u092E\u0932) \u0938\u094D\u0925\u093F\u0924 \u0939\u0948, \u091C\u094B \u092A\u0943\u0925\u094D\u0935\u0940 \u0924\u0924\u094D\u0935 \u0915\u093E \u092A\u094D\u0930\u0924\u0940\u0915 \u0939\u0948\u0964",
+      explanationEnglish: "The Muladhara (Root) Chakra resides at the base of the spine, governing stability and physical foundation.",
+      ref: "Meditation & Dhyana"
+    },
+    {
+      textHindi: "\u092E\u093E\u0928\u0935 \u0936\u0930\u0940\u0930 \u092E\u0947\u0902 \u0915\u0941\u0932 \u0915\u093F\u0924\u0928\u0947 \u092E\u0941\u0916\u094D\u092F \u0906\u0927\u094D\u092F\u093E\u0924\u094D\u092E\u093F\u0915 \u090A\u0930\u094D\u091C\u093E \u0915\u0947\u0902\u0926\u094D\u0930 (\u091A\u0915\u094D\u0930) \u0930\u0940\u0922\u093C \u0915\u0947 \u0938\u092E\u093E\u0928\u093E\u0902\u0924\u0930 \u0938\u094D\u0925\u093F\u0924 \u0939\u0948\u0902?",
+      textEnglish: "How many primary spiritual energy centers (Chakras) are situated along the spinal cord?",
+      optionsHindi: ["7", "108", "12", "5"],
+      optionsEnglish: ["7", "108", "12", "5"],
+      correctHindi: "7",
+      correctEnglish: "7",
+      explanationHindi: "\u0938\u0942\u0915\u094D\u0937\u094D\u092E \u0936\u0930\u0940\u0930 \u092E\u0947\u0902 \u092E\u0941\u0916\u094D\u092F \u0930\u0942\u092A \u0938\u0947 \u0938\u093E\u0924 \u091A\u0915\u094D\u0930 \u0939\u0948\u0902: \u092E\u0942\u0932\u093E\u0927\u093E\u0930, \u0938\u094D\u0935\u093E\u0927\u093F\u0937\u094D\u0920\u093E\u0928, \u092E\u0923\u093F\u092A\u0941\u0930, \u0905\u0928\u093E\u0939\u0924, \u0935\u093F\u0936\u0941\u0926\u094D\u0927, \u0906\u091C\u094D\u091E\u093E \u0914\u0930 \u0938\u0939\u0938\u094D\u0930\u093E\u0930\u0964",
+      explanationEnglish: "There are 7 primary chakras representing different stages of consciousness in the human subtle system.",
+      ref: "Meditation & Dhyana"
+    },
+    {
+      textHindi: "\u092E\u0938\u094D\u0924\u0915 \u0915\u0947 \u0936\u093F\u0916\u0930 \u092A\u0930 (\u092C\u094D\u0930\u0939\u094D\u092E\u0930\u0902\u0927\u094D\u0930 \u092E\u0947\u0902) \u0938\u094D\u0925\u093F\u0924 \u0939\u091C\u093E\u0930 \u092A\u0902\u0916\u0941\u0921\u093C\u093F\u092F\u094B\u0902 \u0935\u093E\u0932\u0947 \u0926\u093F\u0935\u094D\u092F \u091A\u0915\u094D\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948?",
+      textEnglish: "What is the name of the thousand-petalled divine chakra located at the crown of the head?",
+      optionsHindi: ["\u0938\u0939\u0938\u094D\u0930\u093E\u0930 \u091A\u0915\u094D\u0930 (Sahasrara)", "\u0906\u091C\u094D\u091E\u093E \u091A\u0915\u094D\u0930", "\u0935\u093F\u0936\u0941\u0926\u094D\u0927 \u091A\u0915\u094D\u0930", "\u0905\u0928\u093E\u0939\u0924 \u091A\u0915\u094D\u0930"],
+      optionsEnglish: ["Sahasrara Chakra (Crown)", "Ajna Chakra", "Vishuddha Chakra", "Anahata Chakra"],
+      correctHindi: "\u0938\u0939\u0938\u094D\u0930\u093E\u0930 \u091A\u0915\u094D\u0930 (Sahasrara)",
+      correctEnglish: "Sahasrara Chakra (Crown)",
+      explanationHindi: "\u092E\u0938\u094D\u0924\u093F\u0937\u094D\u0915 \u0915\u0947 \u0936\u0940\u0930\u094D\u0937 \u092D\u093E\u0917 \u092A\u0930 \u0938\u0939\u0938\u094D\u0930\u093E\u0930 \u091A\u0915\u094D\u0930 \u0938\u094D\u0925\u093F\u0924 \u0939\u0948, \u091C\u094B \u0905\u0928\u0902\u0924 \u0936\u093E\u0902\u0924\u093F \u0914\u0930 \u092A\u0930\u092E\u093E\u0924\u094D\u092E\u093E \u0938\u0947 \u092A\u0942\u0930\u094D\u0923 \u092E\u093F\u0932\u0928 \u0915\u093E \u092C\u093F\u0902\u0926\u0941 \u0939\u0948\u0964",
+      explanationEnglish: "The Sahasrara (Crown) Chakra is the destination of spiritual ascent, representing cosmic unity.",
+      ref: "Meditation & Dhyana"
+    },
+    {
+      textHindi: "\u092D\u0942\u092E\u0927\u094D\u092F (\u0926\u094B\u0928\u094B\u0902 \u092D\u094C\u0939\u094B\u0902 \u0915\u0947 \u092C\u0940\u091A) \u092E\u0947\u0902 \u0938\u094D\u0925\u093F\u0924 \u091A\u0915\u094D\u0930 \u0915\u093E \u0915\u094D\u092F\u093E \u0928\u093E\u092E \u0939\u0948 \u091C\u093F\u0938\u0947 \u0924\u0940\u0938\u0930\u093E \u0928\u0947\u0924\u094D\u0930 \u092F\u093E \u0935\u093F\u0935\u0947\u0915 \u0915\u093E \u0915\u0947\u0902\u0926\u094D\u0930 \u092D\u0940 \u0915\u0939\u0924\u0947 \u0939\u0948\u0902?",
+      textEnglish: "What is the name of the chakra located between the eyebrows, often called the third eye or intuition center?",
+      optionsHindi: ["\u0906\u091C\u094D\u091E\u093E \u091A\u0915\u094D\u0930 (Ajna Chakra)", "\u0935\u093F\u0936\u0941\u0926\u094D\u0927 \u091A\u0915\u094D\u0930", "\u0905\u0928\u093E\u0939\u0924 \u091A\u0915\u094D\u0930", "\u092E\u0923\u093F\u092A\u0941\u0930 \u091A\u0915\u094D\u0930"],
+      optionsEnglish: ["Ajna Chakra (Third Eye)", "Vishuddha Chakra", "Anahata Chakra", "Manipura Chakra"],
+      correctHindi: "\u0906\u091C\u094D\u091E\u093E \u091A\u0915\u094D\u0930 (Ajna Chakra)",
+      correctEnglish: "Ajna Chakra (Third Eye)",
+      explanationHindi: "\u0926\u094B\u0928\u094B\u0902 \u092D\u094C\u0939\u094B\u0902 \u0915\u0947 \u092E\u0927\u094D\u092F \u0906\u091C\u094D\u091E\u093E \u091A\u0915\u094D\u0930 (\u0926\u094B \u092A\u0902\u0916\u0941\u0921\u093C\u0940 \u0935\u093E\u0932\u093E) \u0938\u094D\u0925\u093F\u0924 \u0939\u0948, \u091C\u094B \u092E\u0928 \u0915\u0940 \u090F\u0915\u093E\u0917\u094D\u0930\u0924\u093E \u0914\u0930 \u0935\u093F\u0935\u0947\u0915 \u0915\u093E \u092E\u0941\u0916\u094D\u092F \u0938\u094D\u0925\u093E\u0928 \u0939\u0948\u0964",
+      explanationEnglish: "The Ajna Chakra is situated between the eyebrows, acting as the seed of intuition, wisdom, and focus.",
+      ref: "Meditation & Dhyana"
+    },
+    {
+      textHindi: "\u0938\u0928\u093E\u0924\u0928 \u092A\u0930\u0902\u092A\u0930\u093E \u092E\u0947\u0902 \u0927\u094D\u092F\u093E\u0928 \u0914\u0930 \u090F\u0915\u093E\u0917\u094D\u0930\u0924\u093E \u0915\u0947 \u0932\u093F\u090F \u0915\u093F\u0938 \u0905\u0928\u093E\u0926\u093F \u0927\u094D\u0935\u0928\u093F (\u092E\u0902\u0924\u094D\u0930\u0930\u093E\u091C) \u0915\u094B \u0938\u0930\u094D\u0935\u094B\u0924\u094D\u0924\u092E \u092E\u093E\u0928\u093E \u0917\u092F\u093E \u0939\u0948?",
+      textEnglish: "In Sanatan tradition, which primordial sound (Mantra) is considered supreme for meditation and chanting?",
+      optionsHindi: ["\u0950 (\u092A\u094D\u0930\u0923\u0935 - Om)", "\u0939\u094D\u0930\u0940\u0902", "\u0915\u094D\u0932\u0940\u0902", "\u0938\u094B\u093D\u0939\u092E\u094D"],
+      optionsEnglish: ["Om (Pranava)", "Hreem", "Kleem", "Soham"],
+      correctHindi: "\u0950 (\u092A\u094D\u0930\u0923\u0935 - Om)",
+      correctEnglish: "Om (Pranava)",
+      explanationHindi: "\u0950 (\u0913\u092E\u094D/\u092A\u094D\u0930\u0923\u0935) \u0938\u0943\u0937\u094D\u091F\u093F \u0915\u0940 \u0905\u0928\u093E\u0926\u093F \u0914\u0930 \u0905\u0928\u093E\u0939\u0924 \u0927\u094D\u0935\u0928\u093F \u0939\u0948, \u091C\u094B \u0927\u094D\u092F\u093E\u0928 \u0932\u0917\u093E\u0928\u0947 \u0914\u0930 \u092E\u093E\u0928\u0938\u093F\u0915 \u0936\u093E\u0902\u0924\u093F \u092A\u093E\u0928\u0947 \u0915\u093E \u0905\u091A\u0942\u0915 \u0938\u093E\u0927\u0928 \u0939\u0948\u0964",
+      explanationEnglish: "Om is the sacred primordial vibration of the cosmos, representing the supreme Absolute.",
+      ref: "Meditation & Dhyana"
+    }
+  ];
+  const sanskritTemplates = [
+    {
+      textHindi: "\u0926\u0947\u0935\u0935\u093E\u0923\u0940 \u0915\u0939\u0940 \u091C\u093E\u0928\u0947 \u0935\u093E\u0932\u0940 \u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u092D\u093E\u0937\u093E \u092E\u0941\u0916\u094D\u092F \u0930\u0942\u092A \u0938\u0947 \u0915\u093F\u0938 \u0932\u093F\u092A\u093F \u092E\u0947\u0902 \u0932\u093F\u0916\u0940 \u091C\u093E\u0924\u0940 \u0939\u0948?",
+      textEnglish: "The Sanskrit language, known as the language of Gods, is primarily written in which script?",
+      optionsHindi: ["\u0926\u0947\u0935\u0928\u093E\u0917\u0930\u0940 (Devanagari)", "\u092C\u094D\u0930\u093E\u0939\u094D\u092E\u0940", "\u0936\u093E\u0930\u0926\u093E", "\u0917\u0941\u0930\u0941\u092E\u0941\u0916\u0940"],
+      optionsEnglish: ["Devanagari", "Brahmi", "Sharada", "Gurmukhi"],
+      correctHindi: "\u0926\u0947\u0935\u0928\u093E\u0917\u0930\u0940 (Devanagari)",
+      correctEnglish: "Devanagari",
+      explanationHindi: "\u0938\u0902\u0938\u093E\u0930 \u0915\u0940 \u0938\u0930\u094D\u0935\u093E\u0927\u093F\u0915 \u0935\u0948\u091C\u094D\u091E\u093E\u0928\u093F\u0915 \u0932\u093F\u092A\u093F \u0926\u0947\u0935\u0928\u093E\u0917\u0930\u0940 \u092E\u0947\u0902 \u0939\u0940 \u092E\u0941\u0916\u094D\u092F\u0924\u0903 \u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u092D\u093E\u0937\u093E \u0915\u093E \u0932\u0947\u0916\u0928 \u0915\u093E\u0930\u094D\u092F \u0939\u094B\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "Sanskrit is primarily recorded and published in the highly structured Devanagari script.",
+      ref: "Sanskrit & Shlokas"
+    },
+    {
+      textHindi: "\u0938\u0902\u0938\u093E\u0930 \u0915\u0947 \u092A\u094D\u0930\u0925\u092E \u0935\u094D\u092F\u0935\u0938\u094D\u0925\u093F\u0924 \u0935\u094D\u092F\u093E\u0915\u0930\u0923 \u0917\u094D\u0930\u0902\u0925 '\u0905\u0937\u094D\u091F\u093E\u0927\u094D\u092F\u093E\u092F\u0940' \u0915\u0947 \u092E\u0939\u093E\u0928 \u0930\u091A\u092F\u093F\u0924\u093E \u0915\u094C\u0928 \u0939\u0948\u0902?",
+      textEnglish: "Who is the legendary composer of the world's first systematic grammar textbook 'Ashtadhyayi'?",
+      optionsHindi: ["\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u093E\u0923\u093F\u0928\u093F", "\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u0924\u0902\u091C\u0932\u093F", "\u092E\u0939\u0930\u094D\u0937\u093F \u092F\u093E\u0938\u094D\u0915", "\u092E\u0939\u0930\u094D\u0937\u093F \u0935\u094D\u092F\u093E\u0938"],
+      optionsEnglish: ["Maharishi Panini", "Maharishi Patanjali", "Maharishi Yaska", "Maharishi Vyasa"],
+      correctHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u093E\u0923\u093F\u0928\u093F",
+      correctEnglish: "Maharishi Panini",
+      explanationHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u092A\u093E\u0923\u093F\u0928\u093F \u0928\u0947 \u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u0935\u094D\u092F\u093E\u0915\u0930\u0923 \u0915\u094B \u0938\u0942\u0924\u094D\u0930\u092C\u0926\u094D\u0927 \u0915\u0930\u0924\u0947 \u0939\u0941\u090F \u096E \u0905\u0927\u094D\u092F\u093E\u092F\u094B\u0902 \u0935\u093E\u0932\u0940 \u0905\u0937\u094D\u091F\u093E\u0927\u094D\u092F\u093E\u092F\u0940 \u0915\u0940 \u0930\u091A\u0928\u093E \u0915\u0940\u0964",
+      explanationEnglish: "Sage Panini composed the Ashtadhyayi, introducing the most advanced grammatical rules for Sanskrit.",
+      ref: "Sanskrit & Shlokas"
+    },
+    {
+      textHindi: "\u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u0938\u093E\u0939\u093F\u0924\u094D\u092F \u0915\u093E '\u0906\u0926\u093F\u0915\u093E\u0935\u094D\u092F' (\u092A\u094D\u0930\u0925\u092E \u092E\u0939\u093E\u0915\u093E\u0935\u094D\u092F) \u0915\u093F\u0938 \u0917\u094D\u0930\u0902\u0925 \u0915\u094B \u092E\u093E\u0928\u093E \u091C\u093E\u0924\u093E \u0939\u0948?",
+      textEnglish: "Which sacred text is universally revered as the 'Adi Kavya' (the first epic poem) in Sanskrit literature?",
+      optionsHindi: ["\u0935\u093E\u0932\u094D\u092E\u0940\u0915\u093F \u0930\u093E\u092E\u093E\u092F\u0923", "\u092E\u0939\u093E\u092D\u093E\u0930\u0924", "\u0930\u0918\u0941\u0935\u0902\u0936\u092E", "\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u0917\u0935\u0926\u094D\u0917\u0940\u0924\u093E"],
+      optionsEnglish: ["Valmiki Ramayana", "Mahabharata", "Raghuvansham", "Bhagavad Gita"],
+      correctHindi: "\u0935\u093E\u0932\u094D\u092E\u0940\u0915\u093F \u0930\u093E\u092E\u093E\u092F\u0923",
+      correctEnglish: "Valmiki Ramayana",
+      explanationHindi: "\u092E\u0939\u0930\u094D\u0937\u093F \u0935\u093E\u0932\u094D\u092E\u0940\u0915\u093F \u0926\u094D\u0935\u093E\u0930\u093E \u0930\u091A\u093F\u0924 \u0930\u093E\u092E\u093E\u092F\u0923 \u0915\u094B \u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u0915\u093E \u092A\u094D\u0930\u0925\u092E \u092E\u0939\u093E\u0915\u093E\u0935\u094D\u092F \u0914\u0930 \u0935\u093E\u0932\u094D\u092E\u0940\u0915\u093F \u091C\u0940 \u0915\u094B \u0906\u0926\u093F\u0915\u0935\u093F \u092E\u093E\u0928\u093E \u091C\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "The Valmiki Ramayana is hailed as the Adi Kavya because it was the first composed epic in Sanskrit.",
+      ref: "Sanskrit & Shlokas"
+    },
+    {
+      textHindi: "'\u0938\u0902\u0938\u094D\u0915\u0943\u0924' \u0936\u092C\u094D\u0926 \u0915\u093E \u0935\u093E\u0938\u094D\u0924\u0935\u093F\u0915 \u0905\u0930\u094D\u0925 \u0915\u094D\u092F\u093E \u0939\u094B\u0924\u093E \u0939\u0948?",
+      textEnglish: "What is the true and literal meaning of the word 'Sanskrit'?",
+      optionsHindi: ["\u092A\u0930\u093F\u0937\u094D\u0915\u0943\u0924, \u0936\u0941\u0926\u094D\u0927 \u0914\u0930 \u0938\u0941\u0938\u0902\u0938\u094D\u0915\u0943\u0924", "\u0926\u0947\u0935\u0924\u093E\u0913\u0902 \u0926\u094D\u0935\u093E\u0930\u093E \u092C\u094B\u0932\u0940 \u091C\u093E\u0928\u0947 \u0935\u093E\u0932\u0940", "\u0905\u0924\u094D\u092F\u0902\u0924 \u0915\u0920\u093F\u0928 \u092D\u093E\u0937\u093E", "\u092A\u094D\u0930\u093E\u091A\u0940\u0928 \u092C\u094B\u0932\u0940"],
+      optionsEnglish: ["Refined, purified, and polished", "Spoken by deities", "Extremely difficult language", "Ancient dialect"],
+      correctHindi: "\u092A\u0930\u093F\u0937\u094D\u0915\u0943\u0924, \u0936\u0941\u0926\u094D\u0927 and \u0938\u0941\u0938\u0902\u0938\u094D\u0915\u0943\u0924",
+      correctEnglish: "Refined, purified, and polished",
+      explanationHindi: "\u0938\u0902\u0938\u094D\u0915\u0943\u0924 \u0915\u093E \u0905\u0930\u094D\u0925 \u0939\u0948 '\u0938\u092E\u094D' (\u092D\u0932\u0940\u092D\u093E\u0902\u0924\u093F) + '\u0915\u0943\u0924' (\u0915\u0940 \u0939\u0941\u0908), \u0905\u0930\u094D\u0925\u093E\u0924\u094D \u091C\u094B \u092A\u0942\u0930\u094D\u0923 \u0930\u0942\u092A \u0938\u0947 \u0936\u0941\u0926\u094D\u0927 \u0914\u0930 \u0935\u094D\u092F\u093E\u0915\u0930\u0923 \u0938\u092E\u094D\u092E\u0924 \u0939\u094B\u0964",
+      explanationEnglish: "Sanskrit literally translates to refined, systematic, purified, and intellectually polished language.",
+      ref: "Sanskrit & Shlokas"
+    },
+    {
+      textHindi: "\u0938\u0902\u0938\u093E\u0930 \u0915\u0947 \u0915\u0932\u094D\u092F\u093E\u0923 \u0939\u0947\u0924\u0941 \u092A\u094D\u0930\u0938\u093F\u0926\u094D\u0927 \u092A\u094D\u0930\u093E\u0930\u094D\u0925\u0928\u093E '\u0938\u0930\u094D\u0935\u0947 \u092D\u0935\u0928\u094D\u0924\u0941 \u0938\u0941\u0916\u093F\u0928\u0903' \u0915\u093F\u0938 \u092A\u094D\u0930\u093E\u091A\u0940\u0928 \u0909\u092A\u0928\u093F\u0937\u0926 \u0938\u0947 \u0932\u0940 \u0917\u0908 \u0939\u0948?",
+      textEnglish: "The universal peace prayer 'Sarve Bhavantu Sukhinah' is part of which ancient Upanishadic tradition?",
+      optionsHindi: ["\u092C\u0943\u0939\u0926\u093E\u0930\u0923\u094D\u092F\u0915 \u0909\u092A\u0928\u093F\u0937\u0926", "\u0915\u0920 \u0909\u092A\u0928\u093F\u0937\u0926", "\u092E\u093E\u0923\u094D\u0921\u0942\u0915\u094D\u092F \u0909\u092A\u0928\u093F\u0937\u0926", "\u0908\u0936 \u0909\u092A\u0928\u093F\u0937\u0926"],
+      optionsEnglish: ["Brihadaranyaka Upanishad", "Katha Upanishad", "Mandukya Upanishad", "Isha Upanishad"],
+      correctHindi: "\u092C\u0943\u0939\u0926\u093E\u0930\u0923\u094D\u092F\u0915 \u0909\u092A\u0928\u093F\u0937\u0926",
+      correctEnglish: "Brihadaranyaka Upanishad",
+      explanationHindi: "\u092F\u0939 \u0936\u093E\u0902\u0924\u093F \u092A\u093E\u0920 \u092C\u0943\u0939\u0926\u093E\u0930\u0923\u094D\u092F\u0915 \u0909\u092A\u0928\u093F\u0937\u0926 \u092A\u0930\u0902\u092A\u0930\u093E \u0938\u0947 \u091C\u0941\u0921\u093C\u093E \u0939\u0948, \u091C\u094B '\u0938\u092D\u0940 \u0938\u0941\u0916\u0940 \u0914\u0930 \u0928\u0940\u0930\u094B\u0917\u0940 \u0930\u0939\u0947\u0902' \u0915\u093E \u092A\u093E\u0935\u0928 \u0938\u0902\u0926\u0947\u0936 \u0926\u0947\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "This ancient prayer for universal happiness and well-being belongs to the Brihadaranyaka Upanishad.",
+      ref: "Sanskrit & Shlokas"
+    }
+  ];
+  const generalTemplates = [
+    {
+      textHindi: "\u0938\u0928\u093E\u0924\u0928 \u0927\u0930\u094D\u092E \u0915\u0947 \u0905\u0902\u0924\u0930\u094D\u0917\u0924 '\u0924\u094D\u0930\u093F\u0926\u0947\u0935' \u0915\u0940 \u0938\u0902\u0915\u0932\u094D\u092A\u0928\u093E \u0915\u093F\u0928 \u0924\u0940\u0928 \u092A\u094D\u0930\u092E\u0941\u0916 \u0926\u0947\u0935\u0924\u093E\u0913\u0902 \u0915\u093E \u092A\u094D\u0930\u0924\u093F\u0928\u093F\u0927\u093F\u0924\u094D\u0935 \u0915\u0930\u0924\u0940 \u0939\u0948?",
+      textEnglish: "Under Sanatan Dharma, the concept of 'Trideva' represents which three principal deities?",
+      optionsHindi: ["\u092C\u094D\u0930\u0939\u094D\u092E\u093E, \u0935\u093F\u0937\u094D\u0923\u0941, \u092E\u0939\u0947\u0936 (\u0936\u093F\u0935)", "\u0930\u093E\u092E, \u0915\u0943\u0937\u094D\u0923, \u0939\u0928\u0941\u092E\u093E\u0928", "\u0907\u0902\u0926\u094D\u0930, \u0935\u0930\u0941\u0923, \u0905\u0917\u094D\u0928\u093F", "\u0917\u0923\u0947\u0936, \u0915\u093E\u0930\u094D\u0924\u093F\u0915\u0947\u092F, \u0936\u093F\u0935"],
+      optionsEnglish: ["Brama, Vishnu, and Mahesh (Shiva)", "Rama, Krishna, and Hanuman", "Indra, Varuna, and Agni", "Ganesha, Kartikeya, and Shiva"],
+      correctHindi: "\u092C\u094D\u0930\u0939\u094D\u092E\u093E, \u0935\u093F\u0937\u094D\u0923\u0941, \u092E\u0939\u0947\u0936 (\u0936\u093F\u0935)",
+      correctEnglish: "Brahma, Vishnu, and Mahesh (Shiva)",
+      explanationHindi: "\u0924\u094D\u0930\u093F\u0926\u0947\u0935 \u0938\u0943\u0937\u094D\u091F\u093F \u0915\u0940 \u0924\u0940\u0928 \u092A\u094D\u0930\u0915\u094D\u0930\u093F\u092F\u093E\u0913\u0902 \u0915\u0947 \u0938\u094D\u0935\u093E\u092E\u0940 \u0939\u0948\u0902: \u092C\u094D\u0930\u0939\u094D\u092E\u093E (\u0938\u0943\u0937\u094D\u091F\u093F \u0915\u0930\u094D\u0924\u093E), \u0935\u093F\u0937\u094D\u0923\u0941 (\u092A\u093E\u0932\u0928 \u0915\u0930\u094D\u0924\u093E) \u0914\u0930 \u092E\u0939\u0947\u0936 (\u0938\u0902\u0939\u093E\u0930 \u0915\u0930\u094D\u0924\u093E)\u0964",
+      explanationEnglish: "The Trimurti/Trideva consists of Brahma the Creator, Vishnu the Preserver, and Shiva the Destroyer.",
+      ref: "General Spiritual Knowledge"
+    },
+    {
+      textHindi: "\u0938\u0928\u093E\u0924\u0928 \u0927\u0930\u094D\u092E \u0915\u0947 \u0905\u091F\u0932 '\u0915\u0930\u094D\u092E \u0938\u093F\u0926\u094D\u0927\u093E\u0902\u0924' \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u092E\u0928\u0941\u0937\u094D\u092F \u0915\u094B \u092A\u094D\u0930\u093E\u092A\u094D\u0924 \u0939\u094B\u0928\u0947 \u0935\u093E\u0932\u0947 \u0938\u0941\u0916-\u0926\u0941\u0916 \u0915\u093E \u092E\u0941\u0916\u094D\u092F \u0915\u093E\u0930\u0923 \u0915\u094D\u092F\u093E \u0939\u0948?",
+      textEnglish: "According to the immutable 'Law of Karma' in Sanatan Dharma, what is the primary cause of joy and sorrow?",
+      optionsHindi: ["\u092E\u0928\u0941\u0937\u094D\u092F \u0915\u0947 \u0938\u094D\u0935\u092F\u0902 \u0915\u0947 \u092A\u0942\u0930\u094D\u0935 \u0914\u0930 \u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u0915\u0930\u094D\u092E", "\u0917\u094D\u0930\u0939\u094B\u0902 \u0915\u0940 \u091A\u093E\u0932", "\u092D\u093E\u0917\u094D\u092F \u0915\u093E \u0905\u091A\u093E\u0928\u0915 \u092C\u0926\u0932\u0928\u093E", "\u0905\u0928\u094D\u092F \u0935\u094D\u092F\u0915\u094D\u0924\u093F\u092F\u094B\u0902 \u0915\u093E \u0935\u094D\u092F\u0935\u0939\u093E\u0930"],
+      optionsEnglish: ["One's own past and present actions", "The planetary transits", "Sudden changes in luck/destiny", "The behavior of other people"],
+      correctHindi: "\u092E\u0928\u0941\u0937\u094D\u092F \u0915\u0947 \u0938\u094D\u0935\u092F\u0902 \u0915\u0947 \u092A\u0942\u0930\u094D\u0935 \u0914\u0930 \u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u0915\u0930\u094D\u092E",
+      correctEnglish: "One's own past and present actions",
+      explanationHindi: "\u0915\u0930\u094D\u092E \u0938\u093F\u0926\u094D\u0927\u093E\u0902\u0924 \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 '\u091C\u0948\u0938\u093E \u092C\u094B\u0913\u0917\u0947, \u0935\u0948\u0938\u093E \u0915\u093E\u091F\u094B\u0917\u0947' - \u0905\u0930\u094D\u0925\u093E\u0924\u094D \u0939\u0930 \u0915\u094D\u0930\u093F\u092F\u093E \u0915\u0940 \u0938\u092E\u093E\u0928 \u0914\u0930 \u0935\u093F\u092A\u0930\u0940\u0924 \u092A\u094D\u0930\u0924\u093F\u0915\u094D\u0930\u093F\u092F\u093E \u0939\u094B\u0924\u0940 \u0939\u0948\u0964",
+      explanationEnglish: "The Law of Karma dictates that every individual is solely responsible for their actions and experiences.",
+      ref: "General Spiritual Knowledge"
+    },
+    {
+      textHindi: "\u0939\u093F\u0902\u0926\u0942 \u0918\u0930\u094B\u0902 \u0915\u0947 \u092A\u094D\u0930\u0935\u0947\u0936 \u0926\u094D\u0935\u093E\u0930 \u092A\u0930 \u092C\u0928\u093E\u092F\u093E \u091C\u093E\u0928\u0947 \u0935\u093E\u0932\u093E \u0915\u0932\u094D\u092F\u093E\u0923, \u0936\u093E\u0902\u0924\u093F \u0914\u0930 \u0938\u092E\u0943\u0926\u094D\u0927\u093F \u0915\u093E \u092A\u093E\u0935\u0928 \u0926\u093F\u0935\u094D\u092F \u092A\u094D\u0930\u0924\u0940\u0915 \u0915\u094C\u0928 \u0938\u093E \u0939\u0948?",
+      textEnglish: "Which sacred divine symbol of peace, auspiciousness, and prosperity is drawn on Hindu entrances?",
+      optionsHindi: ["\u0938\u094D\u0935\u0938\u094D\u0924\u093F\u0915 (Swastika)", "\u0924\u094D\u0930\u093F\u0936\u0942\u0932", "\u0936\u0902\u0916", "\u0915\u092E\u0932"],
+      optionsEnglish: ["Swastika", "Trishul", "Shankha", "Lotus"],
+      correctHindi: "\u0938\u094D\u0935\u0938\u094D\u0924\u093F\u0915 (Swastika)",
+      correctEnglish: "Swastika",
+      explanationHindi: "\u0938\u094D\u0935\u0938\u094D\u0924\u093F\u0915 '\u0938\u0941' (\u0936\u0941\u092D) + '\u0905\u0938\u094D\u0924\u093F' (\u0915\u0932\u094D\u092F\u093E\u0923/\u0905\u0938\u094D\u0924\u093F\u0924\u094D\u0935) \u0915\u093E \u092A\u094D\u0930\u0924\u0940\u0915 \u0939\u0948, \u091C\u094B \u091A\u093E\u0930\u094B\u0902 \u0926\u093F\u0936\u093E\u0913\u0902 \u0938\u0947 \u0915\u0932\u094D\u092F\u093E\u0923 \u0915\u094B \u0906\u0915\u0930\u094D\u0937\u093F\u0924 \u0915\u0930\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "The Swastika is an ancient Vedic symbol representing solar energy, peace, and spiritual fortune.",
+      ref: "General Spiritual Knowledge"
+    },
+    {
+      textHindi: "\u0906\u0927\u094D\u092F\u093E\u0924\u094D\u092E\u093F\u0915 \u092E\u093E\u0928\u094D\u092F\u0924\u093E\u0913\u0902 \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u092A\u0930\u092E \u092A\u093E\u0935\u0928 \u092A\u0924\u093F\u0924\u092A\u093E\u0935\u0928\u0940 \u0917\u0902\u0917\u093E \u0928\u0926\u0940 \u0915\u093E \u092A\u0943\u0925\u094D\u0935\u0940 \u092A\u0930 \u0905\u0935\u0924\u0930\u0923 \u0915\u093F\u0938\u0915\u0947 \u092E\u0938\u094D\u0924\u0915 \u092A\u0930 \u0939\u0941\u0906 \u0925\u093E?",
+      textEnglish: "According to spiritual traditions, on whose head did the celestial River Ganga first land during her descent?",
+      optionsHindi: ["\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0915\u0940 \u091C\u091F\u093E\u0913\u0902 \u092E\u0947\u0902", "\u092D\u0917\u0935\u093E\u0928 \u0935\u093F\u0937\u094D\u0923\u0941 \u0915\u0947 \u091A\u0930\u0923\u094B\u0902 \u092E\u0947\u0902", "\u0930\u093E\u091C\u093E \u092D\u0917\u0940\u0930\u0925 \u0915\u0947 \u0930\u0925 \u092A\u0930", "\u0939\u093F\u092E\u093E\u0932\u092F \u0915\u0947 \u0936\u093F\u0916\u0930\u094B\u0902 \u092A\u0930"],
+      optionsEnglish: ["Lord Shiva's matted hair", "Lord Vishnu's feet", "King Bhagiratha's chariot", "The peaks of Himalayas"],
+      correctHindi: "\u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0915\u0940 \u091C\u091F\u093E\u0913\u0902 \u092E\u0947\u0902",
+      correctEnglish: "Lord Shiva's matted hair",
+      explanationHindi: "\u0917\u0902\u0917\u093E \u0915\u0947 \u0924\u0940\u0935\u094D\u0930 \u0935\u0947\u0917 \u0915\u094B \u092A\u0943\u0925\u094D\u0935\u0940 \u0938\u0939\u0928 \u0928\u0939\u0940\u0902 \u0915\u0930 \u0938\u0915\u0924\u0940 \u0925\u0940, \u0907\u0938\u0932\u093F\u090F \u092D\u0917\u0935\u093E\u0928 \u0936\u093F\u0935 \u0928\u0947 \u0909\u0928\u094D\u0939\u0947\u0902 \u0905\u092A\u0928\u0940 \u091C\u091F\u093E\u0913\u0902 \u092E\u0947\u0902 \u0930\u094B\u0915\u0915\u0930 \u0936\u093E\u0902\u0924 \u0915\u093F\u092F\u093E \u0925\u093E\u0964",
+      explanationEnglish: "Lord Shiva absorbed the intense force of descending Ganga in his locks to save the Earth from destruction.",
+      ref: "General Spiritual Knowledge"
+    },
+    {
+      textHindi: "\u0915\u093F\u0938 \u0905\u0928\u0941\u092A\u092E \u0927\u0930\u094D\u092E\u0917\u094D\u0930\u0902\u0925 \u0915\u094B \u0938\u0902\u092A\u0942\u0930\u094D\u0923 \u0909\u092A\u0928\u093F\u0937\u0926\u094B\u0902 \u0914\u0930 \u0935\u0947\u0926\u094B\u0902 \u0915\u093E \u0905\u092E\u0942\u0932\u094D\u092F \u0928\u093F\u091A\u094B\u0921\u093C (\u0938\u093E\u0930) \u092E\u093E\u0928\u093E \u0917\u092F\u093E \u0939\u0948?",
+      textEnglish: "Which unparalleled scripture is recognized as the supreme summary (nectar) of all Vedas and Upanishads?",
+      optionsHindi: ["\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u0917\u0935\u0926\u094D\u0917\u0940\u0924\u093E (Bhagavad Gita)", "\u0930\u093E\u092E\u091A\u0930\u093F\u0924\u092E\u093E\u0928\u0938", "\u0936\u093F\u0935 \u092A\u0941\u0930\u093E\u0923", "\u092E\u0928\u0941\u0938\u094D\u092E\u0943\u0924\u093F"],
+      optionsEnglish: ["Bhagavad Gita", "Ramcharitmanas", "Shiva Purana", "Manusmriti"],
+      correctHindi: "\u0936\u094D\u0930\u0940\u092E\u0926\u094D\u092D\u0917\u0935\u0926\u094D\u0917\u0940\u0924\u093E (Bhagavad Gita)",
+      correctEnglish: "Bhagavad Gita",
+      explanationHindi: "\u0917\u0940\u0924\u093E \u0915\u094B '\u0917\u0940\u0924\u094B\u092A\u0928\u093F\u0937\u0926' \u092D\u0940 \u0915\u0939\u0924\u0947 \u0939\u0948\u0902, \u091C\u093F\u0938\u0947 \u0938\u092D\u0940 \u0909\u092A\u0928\u093F\u0937\u0926 \u0930\u0942\u092A\u0940 \u0917\u093E\u092F\u094B\u0902 \u0915\u0947 \u0926\u0941\u0917\u094D\u0927 \u0930\u0942\u092A\u0940 \u0905\u092E\u0943\u0924 \u0938\u093E\u0930 \u0915\u0947 \u0930\u0942\u092A \u092E\u0947\u0902 \u091C\u093E\u0928\u093E \u091C\u093E\u0924\u093E \u0939\u0948\u0964",
+      explanationEnglish: "The Bhagavad Gita is hailed as the essence of Upanishadic literature, containing direct words of Lord Krishna.",
+      ref: "General Spiritual Knowledge"
+    }
+  ];
+  function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
   let templates = gitaTemplates;
-  if (scripture === "Ramcharitmanas") templates = ramcharitmanasTemplates;
-  else if (scripture === "Valmiki Ramayan") templates = valmikiTemplates;
-  else if (scripture === "Radha Kripa Kataksh") templates = radhaTemplates;
-  else if (scripture === "Hanuman Chalisa") templates = hanumanTemplates;
-  else if (scripture === "Vishnu Sahasranama") templates = vishnuTemplates;
-  else if (scripture === "Shiv Mahimna Stotra") templates = shivTemplates;
-  else if (scripture === "Durga Saptashati") templates = durgaTemplates;
-  else if (scripture === "Sundarkand") templates = sunderTemplates;
+  const normalizedSubject = (subjectId || "").toLowerCase();
+  if (normalizedSubject.includes("ramcharitmanas") || normalizedSubject.includes("manas") || scripture === "Ramcharitmanas") {
+    templates = ramcharitmanasTemplates;
+  } else if (normalizedSubject.includes("valmiki") || normalizedSubject.includes("ramayan") || scripture === "Valmiki Ramayan") {
+    templates = valmikiTemplates;
+  } else if (normalizedSubject.includes("radha") || normalizedSubject.includes("kataksh") || scripture === "Radha Kripa Kataksh") {
+    templates = radhaTemplates;
+  } else if (normalizedSubject.includes("hanuman_chalisa") || normalizedSubject.includes("chalisa") || scripture === "Hanuman Chalisa") {
+    templates = hanumanTemplates;
+  } else if (normalizedSubject.includes("vishnu_sahasranama") || normalizedSubject.includes("sahasranama") || scripture === "Vishnu Sahasranama") {
+    templates = vishnuTemplates;
+  } else if (normalizedSubject.includes("shiva_mahimna") || normalizedSubject.includes("mahimna") || scripture === "Shiv Mahimna Stotra") {
+    templates = shivTemplates;
+  } else if (normalizedSubject.includes("durga_saptashati") || normalizedSubject.includes("saptashati") || scripture === "Durga Saptashati") {
+    templates = durgaTemplates;
+  } else if (normalizedSubject.includes("sunderkand") || normalizedSubject.includes("sundarkand") || scripture === "Sundarkand") {
+    templates = sunderTemplates;
+  } else if (normalizedSubject.includes("mahabharata") || normalizedSubject.includes("bharat")) {
+    templates = mahabharataTemplates;
+  } else if (normalizedSubject.includes("shiv_puran")) {
+    templates = shivPuranTemplates;
+  } else if (normalizedSubject.includes("vishnu_puran")) {
+    templates = vishnuPuranTemplates;
+  } else if (normalizedSubject.includes("bhagavatam") || normalizedSubject.includes("bhagwat")) {
+    templates = bhagavatamTemplates;
+  } else if (normalizedSubject.includes("vedas") || normalizedSubject.includes("ved")) {
+    templates = vedasTemplates;
+  } else if (normalizedSubject.includes("upanishads") || normalizedSubject.includes("upanishad")) {
+    templates = upanishadsTemplates;
+  } else if (normalizedSubject.includes("saints") || normalizedSubject.includes("guru")) {
+    templates = saintsTemplates;
+  } else if (normalizedSubject.includes("temples") || normalizedSubject.includes("temple")) {
+    templates = templesTemplates;
+  } else if (normalizedSubject.includes("indian_culture") || normalizedSubject.includes("culture")) {
+    templates = cultureTemplates;
+  } else if (normalizedSubject.includes("festivals") || normalizedSubject.includes("vrat")) {
+    templates = festivalsTemplates;
+  } else if (normalizedSubject.includes("yoga")) {
+    templates = yogaTemplates;
+  } else if (normalizedSubject.includes("meditation") || normalizedSubject.includes("dhyan")) {
+    templates = meditationTemplates;
+  } else if (normalizedSubject.includes("sanskrit")) {
+    templates = sanskritTemplates;
+  } else if (normalizedSubject.includes("general_spiritual") || normalizedSubject.includes("general")) {
+    templates = generalTemplates;
+  }
+  const shuffledTemplates = shuffleArray(templates);
   for (let i = 0; i < 25; i++) {
-    const template = templates[i % templates.length];
+    const template = shuffledTemplates[i % shuffledTemplates.length];
     const idxStr = i + 1;
-    const qText = isEnglish ? `${template.textEnglish} (Set ${Math.floor(i / templates.length) + 1})` : `${template.textHindi} (\u092D\u093E\u0917 ${Math.floor(i / templates.length) + 1})`;
+    const qText = isEnglish ? template.textEnglish : template.textHindi;
+    const originalOptions = isEnglish ? template.optionsEnglish : template.optionsHindi;
+    const shuffledOptions = shuffleArray(originalOptions);
     qList.push({
       id: `fallback_q_${subjectId}_${chapterId}_${language.toLowerCase()}_${i}_${Date.now()}`,
       questionId: `fallback_q_${subjectId}_${chapterId}_${language.toLowerCase()}_${i}_${Date.now()}`,
@@ -933,7 +1764,7 @@ function getFallbackQuestions(subjectId, chapterId, language) {
       text: qText,
       question: qText,
       type: "mcq",
-      options: isEnglish ? template.optionsEnglish : template.optionsHindi,
+      options: shuffledOptions,
       correctAnswer: isEnglish ? template.correctEnglish : template.correctHindi,
       explanation: isEnglish ? template.explanationEnglish : template.explanationHindi,
       scriptureRef: template.ref,
@@ -1067,7 +1898,7 @@ function validateAndCleanQuestions(questions, defaultSubject, defaultChapter, de
 }
 async function startServer() {
   const app = (0, import_express.default)();
-  const PORT = 3e3;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
   app.use(import_express.default.json());
   app.post("/api/generate-quote", async (req, res) => {
     try {
@@ -1089,11 +1920,20 @@ Return ONLY a valid JSON object with the following structure:
           { role: "user", parts: [{ text: prompt }] }
         ],
         config: {
-          temperature: 0.7
+          temperature: 0.7,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              hindi: { type: "STRING" },
+              english: { type: "STRING" },
+              source: { type: "STRING" }
+            },
+            required: ["hindi", "english", "source"]
+          }
         }
       }, 2, "ai_quote");
       let rawText = response.text || "{}";
-      rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
       const quote = JSON.parse(rawText);
       res.json({ quote });
     } catch (error) {
@@ -1313,7 +2153,27 @@ Return ONLY a valid JSON object matching this exact schema:
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           temperature: 0.5,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              scripture: { type: "STRING" },
+              chapterId: { type: "STRING" },
+              verseId: { type: "STRING" },
+              sanskrit: { type: "STRING" },
+              wordMeanings: { type: "STRING" },
+              hindiMeaning: { type: "STRING" },
+              englishMeaning: { type: "STRING" },
+              explanation: { type: "STRING" },
+              practicalLessons: { type: "STRING" },
+              keywords: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              },
+              context: { type: "STRING" }
+            },
+            required: ["scripture", "chapterId", "verseId", "sanskrit", "wordMeanings", "hindiMeaning", "englishMeaning", "explanation", "practicalLessons", "keywords", "context"]
+          }
         }
       }, 4, "ai_scripture");
       const rawText = aiResponse.text || "{}";
@@ -1378,7 +2238,33 @@ Return ONLY a valid JSON object matching this exact schema:
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           temperature: 0.5,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              subjectId: { type: "STRING" },
+              chapterId: { type: "STRING" },
+              chapterSummary: { type: "STRING" },
+              objectives: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              },
+              importantTeachings: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              },
+              keyPoints: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              },
+              realLifeApplications: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              },
+              estimatedReadingTime: { type: "STRING" }
+            },
+            required: ["subjectId", "chapterId", "chapterSummary", "objectives", "importantTeachings", "keyPoints", "realLifeApplications", "estimatedReadingTime"]
+          }
         }
       }, 4, "ai_scripture");
       const rawText = aiResponse.text || "{}";
@@ -1998,7 +2884,37 @@ Return ONLY a valid JSON object matching this exact schema:
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           config: {
             temperature: 0.6,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                questions: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      text: { type: "STRING" },
+                      type: { type: "STRING" },
+                      options: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                      },
+                      correctAnswer: { type: "STRING" },
+                      explanation: { type: "STRING" },
+                      scriptureRef: { type: "STRING" },
+                      chapter: { type: "STRING" },
+                      verse: { type: "STRING" },
+                      difficulty: { type: "STRING" },
+                      subject: { type: "STRING" },
+                      language: { type: "STRING" },
+                      aiVersion: { type: "STRING" }
+                    },
+                    required: ["text", "type", "options", "correctAnswer", "explanation", "scriptureRef", "chapter"]
+                  }
+                }
+              },
+              required: ["questions"]
+            }
           }
         }, 2, "ai_quiz");
         const rawText = aiResponse.text || "{}";
@@ -2236,7 +3152,35 @@ You MUST respond ONLY with a JSON object matching this exact schema:
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           config: {
             temperature: 0.6,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                questions: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      question: { type: "STRING" },
+                      options: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                      },
+                      correctAnswer: { type: "STRING" },
+                      explanation: { type: "STRING" },
+                      difficulty: { type: "STRING" },
+                      topic: { type: "STRING" },
+                      keywords: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                      }
+                    },
+                    required: ["question", "options", "correctAnswer", "explanation", "difficulty"]
+                  }
+                }
+              },
+              required: ["questions"]
+            }
           }
         }, 2, "ai_quiz");
         const rawText = aiResponse.text || "{}";
@@ -2335,50 +3279,6 @@ You MUST respond ONLY with a JSON object matching this exact schema:
       }, { merge: true });
     }
   }
-  app.post("/api/admin/quiz/regenerate", async (req, res) => {
-    try {
-      const { subjectId, chapterId, chapterName, language, lessonId } = req.body;
-      if (!subjectId || !chapterId) {
-        return res.status(400).json({ error: "subjectId and chapterId are required." });
-      }
-      const selectedLang = language || "Hindi";
-      const resolvedName = chapterName || `Chapter ${chapterId}`;
-      const resolvedLesson = lessonId || "";
-      const statusId = resolvedLesson ? `${subjectId}_${chapterId}_${resolvedLesson}_${selectedLang}` : `${subjectId}_${chapterId}_${selectedLang}`;
-      console.log(`[Admin Quiz Regenerate] Triggered regeneration for subjectId=${subjectId}, chapterId=${chapterId}, lessonId=${resolvedLesson}, lang=${selectedLang}`);
-      (async () => {
-        try {
-          await generateAndSaveQuestionsBackground(subjectId, chapterId, resolvedName, selectedLang, true, resolvedLesson);
-        } catch (err) {
-          console.error(`[Admin Quiz Regenerate Error] Async generation failed:`, err);
-        }
-      })();
-      res.json({
-        success: true,
-        message: `Regeneration started for ${subjectId}/${chapterId} in ${selectedLang}.`,
-        statusId
-      });
-    } catch (error) {
-      console.error("[Admin Quiz Regenerate Error]:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app.get("/api/admin/quiz/status", async (req, res) => {
-    try {
-      const { statusId } = req.query;
-      if (!statusId) {
-        return res.status(400).json({ error: "statusId is required as query param" });
-      }
-      const snap = await getDoc((0, import_lite.doc)(db, "quiz_generation_status", String(statusId)));
-      if (!snap.exists()) {
-        return res.json({ status: "NotStarted", message: "No generation has been triggered yet for this chapter/language combination." });
-      }
-      res.json(snap.data());
-    } catch (error) {
-      console.error("[Admin Quiz Status Error]:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
   app.post("/api/quiz/pre-generate", async (req, res) => {
     try {
       const { userId, subjectId } = req.body;
@@ -3097,185 +3997,6 @@ Return ONLY a valid JSON object matching this schema:
       res.status(500).send("<h1>Failed to render invoice</h1>");
     }
   });
-  app.get("/api/admin/services", (req, res) => {
-    try {
-      const sanitizedServices = Object.values(apiServices).map((service) => ({
-        ...service,
-        keys: service.keys.map((k) => ({
-          status: k.status,
-          errorCount: k.errorCount,
-          lastUsed: k.lastUsed,
-          keyMasked: k.key ? k.key.substring(0, 6) + "..." + k.key.substring(k.key.length - 4) : "N/A"
-        }))
-      }));
-      res.json({
-        success: true,
-        services: sanitizedServices,
-        logs: apiLogs.slice().reverse(),
-        selfHealingLogs: selfHealingLogs.slice().reverse()
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message || "Failed to retrieve api services" });
-    }
-  });
-  app.post("/api/admin/services/toggle", (req, res) => {
-    try {
-      const { serviceId, enabled } = req.body;
-      const service = apiServices[serviceId];
-      if (!service) {
-        return res.status(404).json({ error: "Service not found" });
-      }
-      service.enabled = !!enabled;
-      res.json({ success: true, message: `Service '${service.name}' ${service.enabled ? "enabled" : "disabled"} successfully.` });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app.post("/api/admin/services/update-keys", (req, res) => {
-    try {
-      const { serviceId, keys } = req.body;
-      const service = apiServices[serviceId];
-      if (!service) {
-        return res.status(404).json({ error: "Service not found" });
-      }
-      if (!Array.isArray(keys)) {
-        return res.status(400).json({ error: "Keys must be an array of strings" });
-      }
-      const parsedKeys = keys.filter((k) => typeof k === "string" && k.trim() !== "");
-      if (parsedKeys.length === 0) {
-        return res.status(400).json({ error: "Must supply at least one valid non-empty key" });
-      }
-      service.keys = parsedKeys.map((k) => ({ key: k, status: "active", errorCount: 0 }));
-      service.currentKeyIndex = 0;
-      res.json({ success: true, message: `Updated ${parsedKeys.length} keys for service '${service.name}' successfully.` });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app.post("/api/admin/services/rotate", (req, res) => {
-    try {
-      const { serviceId } = req.body;
-      const service = apiServices[serviceId];
-      if (!service) {
-        return res.status(404).json({ error: "Service not found" });
-      }
-      if (service.keys.length <= 1) {
-        return res.status(400).json({ error: "Not enough keys in service to perform rotation" });
-      }
-      service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
-      res.json({ success: true, message: `Rotated key for service '${service.name}' to index ${service.currentKeyIndex}.` });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app.post("/api/admin/services/test-connection", async (req, res) => {
-    try {
-      const { serviceId } = req.body;
-      const service = apiServices[serviceId];
-      if (!service) {
-        return res.status(404).json({ error: "Service not found" });
-      }
-      const startTime = Date.now();
-      let status = "healthy";
-      let latency = 0;
-      if (serviceId.startsWith("ai_")) {
-        try {
-          const key = getServiceApiKey(serviceId);
-          const ai = new import_genai.GoogleGenAI({ apiKey: key });
-          await ai.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: "Hi"
-          });
-          latency = Date.now() - startTime;
-          reportServiceSuccess(serviceId, key, latency);
-        } catch (err) {
-          status = "unhealthy";
-          reportServiceError(serviceId, service.keys[service.currentKeyIndex]?.key || "N/A", err);
-        }
-      } else if (serviceId === "panchang") {
-        try {
-          const key = getServiceApiKey("panchang");
-          const resp = await import_axios.default.post("https://json.freeastroapi.com/v1/panchang", {
-            day: 16,
-            month: 7,
-            year: 2026,
-            hour: 12,
-            min: 0,
-            lat: 26.9124,
-            lon: 75.7873,
-            tzone: 5.5
-          }, {
-            headers: { "Authorization": key, "Content-Type": "application/json" },
-            timeout: 5e3
-          });
-          latency = Date.now() - startTime;
-          if (resp.status === 200) {
-            reportServiceSuccess("panchang", key, latency);
-          } else {
-            status = "unhealthy";
-            reportServiceError("panchang", key, new Error(`Non-200 response: ${resp.status}`));
-          }
-        } catch (err) {
-          status = "unhealthy";
-          reportServiceError("panchang", service.keys[0]?.key || "N/A", err);
-        }
-      } else {
-        latency = 50 + Math.floor(Math.random() * 80);
-      }
-      service.lastHealthCheck = {
-        status: status === "healthy" ? "healthy" : "unhealthy",
-        timestamp: Date.now(),
-        latency
-      };
-      res.json({
-        success: true,
-        status,
-        latency,
-        service: service.name
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app.post("/api/admin/self-healing/trigger", (req, res) => {
-    try {
-      const { action } = req.body;
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      if (action === "flush_cache") {
-        const sizeBefore = docCache.size;
-        docCache.clear();
-        selfHealingLogs.push({
-          timestamp: now,
-          action: "Manual Cache Flush",
-          status: "recovered",
-          details: `Admin cleared the Firestore Document Cache. Evicted ${sizeBefore} elements.`
-        });
-        return res.json({ success: true, message: `Successfully flushed cache of size ${sizeBefore}.` });
-      }
-      if (action === "reset_cooldowns") {
-        let resetCount = 0;
-        for (const [_, service] of Object.entries(apiServices)) {
-          for (const k of service.keys) {
-            if (k.status === "cooldown" || k.status === "disabled") {
-              k.status = "active";
-              k.errorCount = 0;
-              resetCount++;
-            }
-          }
-        }
-        selfHealingLogs.push({
-          timestamp: now,
-          action: "Manual Cooldown Reset",
-          status: "recovered",
-          details: `Admin reset cooldown status for ${resetCount} keys across all services.`
-        });
-        return res.json({ success: true, message: `Successfully reset cooldown for ${resetCount} keys.` });
-      }
-      res.status(400).json({ error: "Unsupported self-healing action." });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
   const recitationCache = /* @__PURE__ */ new Map();
   const adhyayanAICache = /* @__PURE__ */ new Map();
   app.post("/api/adhyayan/generate-recitation", async (req, res) => {
@@ -3828,7 +4549,43 @@ Return ONLY a valid JSON object matching this exact schema:
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           temperature: 0.7,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              quiz: {
+                type: "OBJECT",
+                properties: {
+                  name: { type: "STRING" },
+                  description: { type: "STRING" },
+                  difficulty: { type: "STRING" }
+                },
+                required: ["name", "description", "difficulty"]
+              },
+              questions: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    subjectId: { type: "STRING" },
+                    text: { type: "STRING" },
+                    type: { type: "STRING" },
+                    options: {
+                      type: "ARRAY",
+                      items: { type: "STRING" }
+                    },
+                    correctAnswer: { type: "STRING" },
+                    explanation: { type: "STRING" },
+                    scriptureRef: { type: "STRING" },
+                    chapter: { type: "STRING" },
+                    verse: { type: "STRING" }
+                  },
+                  required: ["subjectId", "text", "type", "options", "correctAnswer", "explanation", "scriptureRef"]
+                }
+              }
+            },
+            required: ["quiz", "questions"]
+          }
         }
       }, 2, "ai_quiz");
       let rawText = aiResponse.text || "{}";
@@ -3909,7 +4666,34 @@ Each question must match this JSON structure:
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           config: {
             temperature: 0.7,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                questions: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      subjectId: { type: "STRING" },
+                      text: { type: "STRING" },
+                      type: { type: "STRING" },
+                      options: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                      },
+                      correctAnswer: { type: "STRING" },
+                      explanation: { type: "STRING" },
+                      scriptureRef: { type: "STRING" },
+                      chapter: { type: "STRING" },
+                      verse: { type: "STRING" }
+                    },
+                    required: ["subjectId", "text", "type", "options", "correctAnswer", "explanation", "scriptureRef"]
+                  }
+                }
+              },
+              required: ["questions"]
+            }
           }
         }, 2, "ai_quiz");
         let rawText = response.text || "{}";
