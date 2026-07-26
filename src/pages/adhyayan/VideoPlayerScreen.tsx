@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useRealtimeCollection } from '../../hooks/useRealtimeCollection';
 import { SEO } from '../../components/SEO';
-import { getVideoThumbnail } from '../../utils/videoUtils';
+import { getVideoThumbnail, getYoutubeId } from '../../utils/videoUtils';
 import { useAuthStore } from '../../store/useAuthStore';
 import { doc, getDoc, setDoc, arrayUnion, arrayRemove, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -104,6 +104,65 @@ export const VideoPlayerScreen = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+
+  const safePlay = () => {
+    if (videoRef.current) {
+      setIsPlaying(true);
+      const p = videoRef.current.play();
+      if (p !== undefined) {
+        playPromiseRef.current = p;
+        p.then(() => {
+          playPromiseRef.current = null;
+        }).catch((e: any) => {
+          playPromiseRef.current = null;
+          setIsPlaying(false);
+          console.log('Play error', e);
+        });
+      }
+    }
+  };
+
+  const safePause = () => {
+    if (videoRef.current) {
+      setIsPlaying(false);
+      if (playPromiseRef.current) {
+        playPromiseRef.current
+          .then(() => {
+            if (videoRef.current) {
+              videoRef.current.pause();
+            }
+          })
+          .catch(() => {
+            // Do nothing, play was already aborted or rejected
+          });
+      } else {
+        try {
+          videoRef.current.pause();
+        } catch (e) {}
+      }
+    }
+  };
+
+  const safePauseWithoutState = () => {
+    if (videoRef.current) {
+      if (playPromiseRef.current) {
+        playPromiseRef.current
+          .then(() => {
+            if (videoRef.current) {
+              videoRef.current.pause();
+            }
+          })
+          .catch(() => {
+            // Do nothing, play was already aborted or rejected
+          });
+      } else {
+        try {
+          videoRef.current.pause();
+        } catch (e) {}
+      }
+    }
+  };
 
   const { data: dbVideos, loading } = useRealtimeCollection<any>('videos');
   const video = dbVideos.find(v => v.id === id);
@@ -139,11 +198,18 @@ export const VideoPlayerScreen = () => {
     fetchHistory();
   }, [user, video]);
 
-  const handleYtReady = () => {
+  const handleYtReady = (playerInstance?: any) => {
     setIsPlaying(true);
-    if (startPosition > 0 && playerRef.current && !hasStarted) {
+    const p = playerInstance || playerRef.current;
+    if (p) {
       try {
-        playerRef.current.seekTo(startPosition, 'seconds');
+        const d = p.getDuration();
+        if (d) setDuration(d);
+      } catch (e) {}
+    }
+    if (startPosition > 0 && p && !hasStarted) {
+      try {
+        p.seekTo(startPosition, 'seconds');
         setHasStarted(true);
       } catch(e) {}
     }
@@ -158,9 +224,7 @@ export const VideoPlayerScreen = () => {
           setHasStarted(true);
         } catch(e) {}
       }
-      videoRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch((e: any) => console.log('Playback prevented', e));
+      safePlay();
     }
   };
 
@@ -313,6 +377,14 @@ export const VideoPlayerScreen = () => {
     isYouTube = false;
   }
 
+  // Convert any YouTube format into a standard URL for ReactPlayer
+  if (isYouTube && playUrl) {
+    const ytId = getYoutubeId(playUrl);
+    if (ytId) {
+      playUrl = `https://www.youtube.com/watch?v=${ytId}`;
+    }
+  }
+
   // Cloudinary Dynamic Resolution Transformations on raw playUrl
   const getTransformedUrl = (url: string, res: string) => {
     if (!url || !url.includes('cloudinary.com')) return url;
@@ -332,6 +404,14 @@ export const VideoPlayerScreen = () => {
   };
 
   const transformedPlayUrl = isYouTube ? playUrl : getTransformedUrl(playUrl, quality);
+
+  // Clean up and pause the video element on unmount or when ID/source URL changes
+  useEffect(() => {
+    return () => {
+      safePauseWithoutState();
+      playPromiseRef.current = null;
+    };
+  }, [id, transformedPlayUrl]);
 
   // PLAYLIST LOGIC
   const playlistVideos = dbVideos
@@ -388,7 +468,7 @@ export const VideoPlayerScreen = () => {
     }
   };
 
-  // Custom Controls Event Actions for Cloudinary Player
+  // Custom Controls Event Actions for Cloudinary & YouTube Player
   const togglePlay = () => {
     if (isYouTube) {
       setIsPlaying(!isPlaying);
@@ -396,12 +476,9 @@ export const VideoPlayerScreen = () => {
     }
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
+        safePause();
       } else {
-        videoRef.current.play()
-          .then(() => setIsPlaying(true))
-          .catch((e: any) => console.log('Play error', e));
+        safePlay();
       }
     }
   };
@@ -409,26 +486,31 @@ export const VideoPlayerScreen = () => {
   const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setCurrentTime(val);
-    if (videoRef.current) {
+    if (isYouTube) {
+      if (playerRef.current) {
+        playerRef.current.seekTo(val, 'seconds');
+      }
+    } else if (videoRef.current) {
       videoRef.current.currentTime = val;
     }
   };
 
   const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
     if (videoRef.current) {
-      const nextMuted = !isMuted;
       videoRef.current.muted = nextMuted;
-      setIsMuted(nextMuted);
     }
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setVolume(val);
+    const nextMuted = val === 0;
+    setIsMuted(nextMuted);
     if (videoRef.current) {
       videoRef.current.volume = val;
-      videoRef.current.muted = val === 0;
-      setIsMuted(val === 0);
+      videoRef.current.muted = nextMuted;
     }
   };
 
@@ -441,16 +523,15 @@ export const VideoPlayerScreen = () => {
   };
 
   const handleQualitySelect = (q: string) => {
-    const savedTime = currentTime;
     setQuality(q);
     setShowSettingsMenu(false);
+    if (isYouTube) return;
+    const savedTime = currentTime;
     // Reload source with saved time
     setTimeout(() => {
       if (videoRef.current) {
         videoRef.current.currentTime = savedTime;
-        videoRef.current.play()
-          .then(() => setIsPlaying(true))
-          .catch(() => {});
+        safePlay();
       }
     }, 150);
   };
@@ -634,26 +715,56 @@ export const VideoPlayerScreen = () => {
                 </div>
               </div>
             ) : transformedPlayUrl ? (
-              isYouTube ? (
-                <Player
-                  ref={playerRef}
-                  url={transformedPlayUrl}
-                  width="100%"
-                  height="100%"
-                  controls={true}
-                  playing={isPlaying}
-                  onError={() => setPlayerError(true)}
-                  onReady={handleYtReady}
-                  onEnded={handleVideoEnded}
-                  onProgress={handleProgress}
-                  config={{
-                    youtube: {
-                      playerVars: { showinfo: 1, rel: 0, modestbranding: 1 }
-                    }
-                  }}
-                />
-              ) : (
-                <div className="relative w-full h-full flex items-center justify-center">
+              <div className="relative w-full h-full flex items-center justify-center">
+                {isYouTube ? (
+                  <div className="w-full h-full relative">
+                    <Player
+                      ref={playerRef}
+                      url={transformedPlayUrl}
+                      width="100%"
+                      height="100%"
+                      controls={false}
+                      playing={isPlaying}
+                      onError={() => setPlayerError(true)}
+                      onReady={handleYtReady}
+                      onEnded={handleVideoEnded}
+                      onProgress={(state: any) => {
+                        setCurrentTime(state.playedSeconds);
+                        handleProgress(state);
+                        if (playerRef.current) {
+                          try {
+                            const d = playerRef.current.getDuration();
+                            if (d && d !== duration) {
+                              setDuration(d);
+                            }
+                          } catch (e) {}
+                        }
+                      }}
+                      playbackRate={playbackSpeed}
+                      volume={volume}
+                      muted={isMuted}
+                      config={{
+                        youtube: {
+                          playerVars: { 
+                            showinfo: 0, 
+                            rel: 0, 
+                            modestbranding: 1,
+                            controls: 0,
+                            fs: 0,
+                            iv_load_policy: 3,
+                            autohide: 1,
+                            playsinline: 1
+                          }
+                        }
+                      }}
+                    />
+                    {/* Transparent click receiver to pause/play */}
+                    <div 
+                      className="absolute inset-0 bg-transparent z-10 cursor-pointer" 
+                      onClick={togglePlay}
+                    />
+                  </div>
+                ) : (
                   <video
                     ref={videoRef}
                     src={transformedPlayUrl}
@@ -680,203 +791,210 @@ export const VideoPlayerScreen = () => {
                       />
                     )}
                   </video>
+                )}
 
-                  {/* PREMIUM CUSTOM CONTROLS OVERLAY FOR CLOUDINARY */}
-                  {showControls && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30 flex flex-col justify-between p-4 z-20 transition-all duration-300">
-                      
-                      {/* Top Bar Label */}
-                      <div className="flex justify-between items-start pointer-events-none opacity-90">
-                        <div className="hidden sm:block text-white text-xs font-medium pl-14 pt-1">
-                          Playing: <span className="font-bold">{video.title}</span>
-                        </div>
-                      </div>
-
-                      {/* Center Play/Pause Overlay */}
-                      <div className="flex items-center justify-center gap-6 pointer-events-none">
-                        <button 
-                          onClick={togglePlay}
-                          className="w-14 h-14 bg-saffron text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 pointer-events-auto"
-                        >
-                          {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-1" fill="currentColor" />}
-                        </button>
-                      </div>
-
-                      {/* Bottom Controls Bar */}
-                      <div className="space-y-3 pointer-events-auto">
-                        
-                        {/* Seek Slider bar */}
-                        <div className="flex items-center gap-3">
-                          <input 
-                            type="range"
-                            min={0}
-                            max={duration || 100}
-                            value={currentTime}
-                            onChange={handleSeekChange}
-                            className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-saffron"
-                          />
-                        </div>
-
-                        {/* Control buttons line */}
-                        <div className="flex items-center justify-between text-white">
-                          <div className="flex items-center gap-4">
-                            <button onClick={togglePlay} className="hover:text-saffron transition">
-                              {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
-                            </button>
-
-                            {/* Prev/Next buttons */}
-                            <button onClick={handlePrevVideo} disabled={!prevVideo} className="disabled:opacity-40 hover:text-saffron transition">
-                              <SkipBack size={18} fill="currentColor" />
-                            </button>
-                            <button onClick={handleNextVideo} disabled={!nextVideo} className="disabled:opacity-40 hover:text-saffron transition">
-                              <SkipForward size={18} fill="currentColor" />
-                            </button>
-
-                            {/* Volume bar */}
-                            <div className="flex items-center gap-2 group/volume">
-                              <button onClick={toggleMute} className="hover:text-saffron transition">
-                                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                              </button>
-                              <input 
-                                type="range"
-                                min={0}
-                                max={1}
-                                step={0.1}
-                                value={isMuted ? 0 : volume}
-                                onChange={handleVolumeChange}
-                                className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hidden sm:block"
-                              />
-                            </div>
-
-                            {/* Time Display */}
-                            <span className="text-[11px] font-mono opacity-90">
-                              {formatTime(currentTime)} / {formatTime(duration)}
-                            </span>
-                          </div>
-
-                          {/* Right Side Controls */}
-                          <div className="flex items-center gap-4 relative">
-                            {/* PiP button */}
-                            <button onClick={togglePictureInPicture} className="hover:text-saffron transition" title="Picture in Picture">
-                              <Tv size={18} />
-                            </button>
-
-                            {/* Settings button */}
-                            <button 
-                              onClick={() => {
-                                setShowSettingsMenu(!showSettingsMenu);
-                                setSettingsActiveTab("main");
-                              }} 
-                              className={`hover:text-saffron transition ${showSettingsMenu ? 'text-saffron rotate-45' : ''}`}
-                            >
-                              <Settings size={18} />
-                            </button>
-
-                            {/* Fullscreen button */}
-                            <button onClick={toggleFullscreen} className="hover:text-saffron transition">
-                              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                            </button>
-
-                            {/* Settings Popup Menu */}
-                            {showSettingsMenu && (
-                              <div className="absolute bottom-10 right-0 bg-slate-900/95 border border-slate-700/80 rounded-2xl p-3 w-52 shadow-2xl backdrop-blur-md text-xs z-50 space-y-2">
-                                {settingsActiveTab === "main" && (
-                                  <>
-                                    <div className="font-bold border-b border-slate-700/60 pb-1.5 text-slate-300">Settings</div>
-                                    <button 
-                                      onClick={() => setSettingsActiveTab("speed")} 
-                                      className="flex items-center justify-between w-full py-1.5 text-left hover:bg-slate-800 rounded px-2"
-                                    >
-                                      <span className="flex items-center gap-1.5 text-slate-400"><Gauge size={12} /> Playback Speed</span>
-                                      <span className="font-bold text-saffron">{playbackSpeed}x</span>
-                                    </button>
-                                    <button 
-                                      onClick={() => setSettingsActiveTab("quality")} 
-                                      className="flex items-center justify-between w-full py-1.5 text-left hover:bg-slate-800 rounded px-2"
-                                    >
-                                      <span className="flex items-center gap-1.5 text-slate-400"><Eye size={12} /> Quality</span>
-                                      <span className="font-bold text-saffron">{quality}</span>
-                                    </button>
-                                    <button 
-                                      onClick={() => setSettingsActiveTab("subtitles")} 
-                                      className="flex items-center justify-between w-full py-1.5 text-left hover:bg-slate-800 rounded px-2"
-                                    >
-                                      <span className="flex items-center gap-1.5 text-slate-400"><Languages size={12} /> Subtitles</span>
-                                      <span className="font-bold text-saffron">{isSubtitlesOn ? "Hindi" : "Off"}</span>
-                                    </button>
-                                  </>
-                                )}
-
-                                {settingsActiveTab === "speed" && (
-                                  <>
-                                    <div className="font-bold border-b border-slate-700/60 pb-1.5 flex items-center gap-2">
-                                      <button onClick={() => setSettingsActiveTab("main")} className="text-saffron hover:underline">←</button>
-                                      <span>Select Speed</span>
-                                    </div>
-                                    {[0.5, 1.0, 1.25, 1.5, 2.0].map((s) => (
-                                      <button 
-                                        key={s} 
-                                        onClick={() => handleSpeedSelect(s)}
-                                        className="flex items-center justify-between w-full py-1.5 px-2 hover:bg-slate-800 rounded text-left"
-                                      >
-                                        <span>{s}x</span>
-                                        {playbackSpeed === s && <Check size={12} className="text-saffron" />}
-                                      </button>
-                                    ))}
-                                  </>
-                                )}
-
-                                {settingsActiveTab === "quality" && (
-                                  <>
-                                    <div className="font-bold border-b border-slate-700/60 pb-1.5 flex items-center gap-2">
-                                      <button onClick={() => setSettingsActiveTab("main")} className="text-saffron hover:underline">←</button>
-                                      <span>Select Resolution</span>
-                                    </div>
-                                    {["Auto", "1080p", "720p", "480p"].map((q) => (
-                                      <button 
-                                        key={q} 
-                                        onClick={() => handleQualitySelect(q)}
-                                        className="flex items-center justify-between w-full py-1.5 px-2 hover:bg-slate-800 rounded text-left"
-                                      >
-                                        <span>{q}</span>
-                                        {quality === q && <Check size={12} className="text-saffron" />}
-                                      </button>
-                                    ))}
-                                  </>
-                                )}
-
-                                {settingsActiveTab === "subtitles" && (
-                                  <>
-                                    <div className="font-bold border-b border-slate-700/60 pb-1.5 flex items-center gap-2">
-                                      <button onClick={() => setSettingsActiveTab("main")} className="text-saffron hover:underline">←</button>
-                                      <span>Toggle Subtitles</span>
-                                    </div>
-                                    <button 
-                                      onClick={handleSubtitlesToggle}
-                                      className="flex items-center justify-between w-full py-2 px-2 hover:bg-slate-800 rounded text-left"
-                                    >
-                                      <span>On (Hindi Devotional)</span>
-                                      {isSubtitlesOn && <Check size={12} className="text-saffron" />}
-                                    </button>
-                                    <button 
-                                      onClick={() => { setIsSubtitlesOn(false); setShowSettingsMenu(false); }}
-                                      className="flex items-center justify-between w-full py-2 px-2 hover:bg-slate-800 rounded text-left"
-                                    >
-                                      <span>Off</span>
-                                      {!isSubtitlesOn && <Check size={12} className="text-saffron" />}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
+                {/* PREMIUM CUSTOM CONTROLS OVERLAY FOR BOTH CLOUDINARY & YOUTUBE */}
+                {showControls && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30 flex flex-col justify-between p-4 z-20 transition-all duration-300">
+                    
+                    {/* Top Bar Label */}
+                    <div className="flex justify-between items-start pointer-events-none opacity-90">
+                      <div className="hidden sm:block text-white text-xs font-medium pl-14 pt-1">
+                        Playing: <span className="font-bold">{video.title}</span>
                       </div>
                     </div>
-                  )}
-                </div>
-              )
+
+                    {/* Center Play/Pause Overlay */}
+                    <div 
+                      onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                          togglePlay();
+                        }
+                      }}
+                      className="flex items-center justify-center gap-6 cursor-pointer flex-1"
+                    >
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                        className="w-14 h-14 bg-saffron text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 z-30"
+                      >
+                        {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-1" fill="currentColor" />}
+                      </button>
+                    </div>
+
+                    {/* Bottom Controls Bar */}
+                    <div className="space-y-3 pointer-events-auto">
+                      
+                      {/* Seek Slider bar */}
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="range"
+                          min={0}
+                          max={duration || 100}
+                          value={currentTime}
+                          onChange={handleSeekChange}
+                          className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-saffron"
+                        />
+                      </div>
+
+                      {/* Control buttons line */}
+                      <div className="flex items-center justify-between text-white">
+                        <div className="flex items-center gap-4">
+                          <button onClick={togglePlay} className="hover:text-saffron transition">
+                            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                          </button>
+
+                          {/* Prev/Next buttons */}
+                          <button onClick={handlePrevVideo} disabled={!prevVideo} className="disabled:opacity-40 hover:text-saffron transition">
+                            <SkipBack size={18} fill="currentColor" />
+                          </button>
+                          <button onClick={handleNextVideo} disabled={!nextVideo} className="disabled:opacity-40 hover:text-saffron transition">
+                            <SkipForward size={18} fill="currentColor" />
+                          </button>
+
+                          {/* Volume bar */}
+                          <div className="flex items-center gap-2 group/volume">
+                            <button onClick={toggleMute} className="hover:text-saffron transition">
+                              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                            </button>
+                            <input 
+                              type="range"
+                              min={0}
+                              max={1}
+                              step={0.1}
+                              value={isMuted ? 0 : volume}
+                              onChange={handleVolumeChange}
+                              className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hidden sm:block"
+                            />
+                          </div>
+
+                          {/* Time Display */}
+                          <span className="text-[11px] font-mono opacity-90">
+                            {formatTime(currentTime)} / {formatTime(duration)}
+                          </span>
+                        </div>
+
+                        {/* Right Side Controls */}
+                        <div className="flex items-center gap-4 relative">
+                          {/* PiP button */}
+                          <button onClick={togglePictureInPicture} className="hover:text-saffron transition" title="Picture in Picture">
+                            <Tv size={18} />
+                          </button>
+
+                          {/* Settings button */}
+                          <button 
+                            onClick={() => {
+                              setShowSettingsMenu(!showSettingsMenu);
+                              setSettingsActiveTab("main");
+                            }} 
+                            className={`hover:text-saffron transition ${showSettingsMenu ? 'text-saffron rotate-45' : ''}`}
+                          >
+                            <Settings size={18} />
+                          </button>
+
+                          {/* Fullscreen button */}
+                          <button onClick={toggleFullscreen} className="hover:text-saffron transition">
+                            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                          </button>
+
+                          {/* Settings Popup Menu */}
+                          {showSettingsMenu && (
+                            <div className="absolute bottom-10 right-0 bg-slate-900/95 border border-slate-700/80 rounded-2xl p-3 w-52 shadow-2xl backdrop-blur-md text-xs z-50 space-y-2">
+                              {settingsActiveTab === "main" && (
+                                <>
+                                  <div className="font-bold border-b border-slate-700/60 pb-1.5 text-slate-300">Settings</div>
+                                  <button 
+                                    onClick={() => setSettingsActiveTab("speed")} 
+                                    className="flex items-center justify-between w-full py-1.5 text-left hover:bg-slate-800 rounded px-2"
+                                  >
+                                    <span className="flex items-center gap-1.5 text-slate-400"><Gauge size={12} /> Playback Speed</span>
+                                    <span className="font-bold text-saffron">{playbackSpeed}x</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => setSettingsActiveTab("quality")} 
+                                    className="flex items-center justify-between w-full py-1.5 text-left hover:bg-slate-800 rounded px-2"
+                                  >
+                                    <span className="flex items-center gap-1.5 text-slate-400"><Eye size={12} /> Quality</span>
+                                    <span className="font-bold text-saffron">{quality}</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => setSettingsActiveTab("subtitles")} 
+                                    className="flex items-center justify-between w-full py-1.5 text-left hover:bg-slate-800 rounded px-2"
+                                  >
+                                    <span className="flex items-center gap-1.5 text-slate-400"><Languages size={12} /> Subtitles</span>
+                                    <span className="font-bold text-saffron">{isSubtitlesOn ? "Hindi" : "Off"}</span>
+                                  </button>
+                                </>
+                              )}
+
+                              {settingsActiveTab === "speed" && (
+                                <>
+                                  <div className="font-bold border-b border-slate-700/60 pb-1.5 flex items-center gap-2">
+                                    <button onClick={() => setSettingsActiveTab("main")} className="text-saffron hover:underline">←</button>
+                                    <span>Select Speed</span>
+                                  </div>
+                                  {[0.5, 1.0, 1.25, 1.5, 2.0].map((s) => (
+                                    <button 
+                                      key={s} 
+                                      onClick={() => handleSpeedSelect(s)}
+                                      className="flex items-center justify-between w-full py-1.5 px-2 hover:bg-slate-800 rounded text-left"
+                                    >
+                                      <span>{s}x</span>
+                                      {playbackSpeed === s && <Check size={12} className="text-saffron" />}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+
+                              {settingsActiveTab === "quality" && (
+                                <>
+                                  <div className="font-bold border-b border-slate-700/60 pb-1.5 flex items-center gap-2">
+                                    <button onClick={() => setSettingsActiveTab("main")} className="text-saffron hover:underline">←</button>
+                                    <span>Select Resolution</span>
+                                  </div>
+                                  {["Auto", "1080p", "720p", "480p"].map((q) => (
+                                    <button 
+                                      key={q} 
+                                      onClick={() => handleQualitySelect(q)}
+                                      className="flex items-center justify-between w-full py-1.5 px-2 hover:bg-slate-800 rounded text-left"
+                                    >
+                                      <span>{q}</span>
+                                      {quality === q && <Check size={12} className="text-saffron" />}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+
+                              {settingsActiveTab === "subtitles" && (
+                                <>
+                                  <div className="font-bold border-b border-slate-700/60 pb-1.5 flex items-center gap-2">
+                                    <button onClick={() => setSettingsActiveTab("main")} className="text-saffron hover:underline">←</button>
+                                    <span>Toggle Subtitles</span>
+                                  </div>
+                                  <button 
+                                    onClick={handleSubtitlesToggle}
+                                    className="flex items-center justify-between w-full py-2 px-2 hover:bg-slate-800 rounded text-left"
+                                  >
+                                    <span>On (Hindi Devotional)</span>
+                                    {isSubtitlesOn && <Check size={12} className="text-saffron" />}
+                                  </button>
+                                  <button 
+                                    onClick={() => { setIsSubtitlesOn(false); setShowSettingsMenu(false); }}
+                                    className="flex items-center justify-between w-full py-2 px-2 hover:bg-slate-800 rounded text-left"
+                                  >
+                                    <span>Off</span>
+                                    {!isSubtitlesOn && <Check size={12} className="text-saffron" />}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center p-6 text-center">
                 <p className="text-white text-sm mb-4">Video is currently unavailable.</p>

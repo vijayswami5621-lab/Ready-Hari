@@ -47,6 +47,20 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
+        // Try to load cached user data from localStorage immediately to prevent loading/empty states
+        let cachedData: any = null;
+        try {
+          const cached = localStorage.getItem(`hp_user_data_${authUser.uid}`);
+          if (cached) {
+            cachedData = JSON.parse(cached);
+            setUser(authUser, cachedData);
+            if (cachedData.cart) setCart(cachedData.cart);
+            if (cachedData.wishlist) setWishlist(cachedData.wishlist);
+          }
+        } catch (e) {
+          console.warn("Error reading cached user data:", e);
+        }
+
         try {
           const docRef = doc(db, 'users', authUser.uid);
           const docSnap = await getDoc(docRef);
@@ -54,6 +68,13 @@ export default function App() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setUser(authUser, data);
+            
+            // Sync to local cache
+            try {
+              localStorage.setItem(`hp_user_data_${authUser.uid}`, JSON.stringify(data));
+            } catch (e) {
+              console.warn("Error caching user data:", e);
+            }
             
             // Sync cart and wishlist from Firestore on login
             if (data.cart) setCart(data.cart);
@@ -66,11 +87,18 @@ export default function App() {
               }
             }
           } else {
-            setUser(authUser, { email: authUser.email });
+            const defaultProfile = { email: authUser.email };
+            setUser(authUser, defaultProfile);
+            try {
+              localStorage.setItem(`hp_user_data_${authUser.uid}`, JSON.stringify(defaultProfile));
+            } catch (e) {}
           }
         } catch (error) {
-          console.error("Error fetching user data", error);
-          setUser(authUser, null);
+          console.warn("Error fetching user data from server (falling back to cache/offline mode):", error);
+          if (!cachedData) {
+            // Fallback user state so app remains functional
+            setUser(authUser, { email: authUser.email, isOfflineFallback: true });
+          }
         }
       } else {
         setUser(null, null);

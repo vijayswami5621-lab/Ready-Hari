@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '../../firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase/config';
 import { SEO } from '../../components/SEO';
 
 export const ContentResolver = () => {
@@ -39,7 +39,6 @@ export const ContentResolver = () => {
 
       
       try {
-        const db = getFirestore(app);
         
         // Try products
         const productSnap = await getDoc(doc(db, 'products', id));

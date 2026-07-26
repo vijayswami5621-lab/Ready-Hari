@@ -4,6 +4,22 @@ import { getYoutubeId, getCloudinaryDetails } from "./videoUtils";
 
 export const fetchYoutubeMetadata = async (videoId: string) => {
   try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    const response = await fetch(oembedUrl);
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        durationSeconds: 0,
+        duration: "0:00",
+        channelName: data.author_name || "",
+        publishDate: "",
+      };
+    }
+  } catch (error) {
+    console.warn("YouTube oEmbed fetch failed, trying proxy...", error);
+  }
+
+  try {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
 
@@ -49,7 +65,7 @@ export const fetchYoutubeMetadata = async (videoId: string) => {
       };
     }
   } catch (error) {
-    console.error("Failed to fetch YouTube metadata", error);
+    console.warn("Failed to fetch YouTube metadata gracefully", error);
   }
   return null;
 };
@@ -157,7 +173,7 @@ export const autoFetchVideoMetadata = async (videoDoc: any) => {
       await updateDoc(doc(db, "videos", videoDoc.id), updates);
     }
   } catch (err) {
-    console.error("Auto meta fetch failed", err);
+    console.warn("Auto meta fetch failed gracefully", err);
   } finally {
     sessionStorage.removeItem(cacheKey);
   }

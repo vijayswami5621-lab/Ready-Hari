@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Share2, Heart, Bookmark, ChevronRight, Copy, Check, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { SecureImage } from './common/SecureImage';
 import { useAuthStore } from '../store/useAuthStore';
 import { db } from '../firebase/config';
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, onSnapshot } from 'firebase/firestore';
@@ -13,7 +12,7 @@ interface QuotesSliderProps {
   onShare: (quote: any) => void;
 }
 
-export const QuotesSlider: React.FC<QuotesSliderProps> = ({ quotes, title, onShare }) => {
+export const QuotesSlider = ({ quotes, title, onShare }: QuotesSliderProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userLikes, setUserLikes] = useState<string[]>([]);
   const [userBookmarks, setUserBookmarks] = useState<string[]>([]);
