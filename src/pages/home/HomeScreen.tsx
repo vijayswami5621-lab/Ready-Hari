@@ -16,6 +16,7 @@ import { getISTDateInfo } from '../../services/naamJapService';
 import { SecureImage } from '../../components/common/SecureImage';
 import { useAppSettings } from '../../contexts/AppSettingsContext';
 import { HomeSectionRenderer } from '../../components/home/HomeSectionRenderer';
+import { getAppOrigin, generateShareLink } from '../../utils/urlHelper';
 
 class SectionErrorBoundary extends React.Component<{ children: React.ReactNode, sectionTitle: string }, { hasError: boolean }> {
   constructor(props: any) {
@@ -361,7 +362,7 @@ export const HomeScreen = () => {
       
       if (navigator.share) {
         try {
-          const config: any = settings?.shareConfig || { baseUrl: 'https://haripathshala.online', defaultTitle: 'Hari Pathshala', defaultMessage: 'Check this out!', socialCaption: '', footerMessage: '' };
+          const config: any = settings?.shareConfig || { baseUrl: getAppOrigin(), defaultTitle: 'Hari Pathshala', defaultMessage: 'Check this out!', socialCaption: '', footerMessage: '' };
           const blob = await (await fetch(dataUrl)).blob();
           const file = new File([blob], 'quote.png', { type: 'image/png' });
           
@@ -678,7 +679,7 @@ export const HomeScreen = () => {
                   <div className="flex items-center gap-2">
                     <div className="bg-white p-0.5 rounded-lg shadow-sm border border-neutral-100 shrink-0">
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://haripathshala.online/quotes?id=${selectedQuoteForShare?.id}`)}`}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(generateShareLink(`/quotes?id=${selectedQuoteForShare?.id}`))}`}
                         alt="Scan QR"
                         className="w-8 h-8"
                       />
@@ -691,7 +692,7 @@ export const HomeScreen = () => {
                         Scan to view quote online
                       </p>
                       <p className="text-[7px] font-bold tracking-tight pt-0.5 leading-none text-white">
-                        haripathshala.online
+                        {getAppOrigin().replace("https://", "").replace("http://", "")}
                       </p>
                     </div>
                   </div>

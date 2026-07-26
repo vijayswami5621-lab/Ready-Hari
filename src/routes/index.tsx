@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, useRouteError } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { RefreshCw, Home as HomeIcon } from 'lucide-react';
+import { getApiUrl } from '../utils/apiHelper';
 
 const GlobalErrorBoundary = () => {
   const error = useRouteError();
@@ -9,7 +10,7 @@ const GlobalErrorBoundary = () => {
     if (process.env.NODE_ENV !== 'production') {
       console.error("Route error caught by GlobalErrorBoundary:", error);
     }
-    fetch('/api/log-error', {
+    fetch(getApiUrl('/api/log-error'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: (error as Error)?.message || String(error), stack: (error as Error)?.stack })

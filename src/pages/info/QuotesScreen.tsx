@@ -8,6 +8,7 @@ import { useRealtimeCollection } from "../../hooks/useRealtimeCollection";
 import { SecureImage } from "../../components/common/SecureImage";
 import { useAuthStore } from "../../store/useAuthStore";
 import { db } from "../../firebase/config";
+import { getAppOrigin, generateShareLink } from "../../utils/urlHelper";
 import {
   doc,
   getDoc,
@@ -260,7 +261,7 @@ export const QuotesScreen = () => {
         backgroundColor: getThemeBgColor()
       });
       const text = `🔱 Divine Quote of Wisdom from Hari Pathshala:\n\n"${sharingQuote.text}"\n\n- ${sharingQuote.source || 'Holy Scriptures'}`;
-      const shareUrl = `https://haripathshala.online/quote/${sharingQuote.id}`;
+      const shareUrl = generateShareLink(`/quote/${sharingQuote.id}`);
       
       const response = await fetch(dataUrl);
       const blob = await response.blob();
@@ -620,7 +621,7 @@ export const QuotesScreen = () => {
                         <div className="flex items-center gap-2">
                           <div className="bg-white p-0.5 rounded-lg shadow-sm border border-neutral-100 shrink-0">
                             <img 
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://haripathshala.online/quotes?id=${sharingQuote.id}`)}`}
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(generateShareLink(`/quotes?id=${sharingQuote.id}`))}`}
                               alt="Scan QR"
                               className="w-10 h-10"
                             />
@@ -633,7 +634,7 @@ export const QuotesScreen = () => {
                               Scan to view quote online
                             </p>
                             <p className={`text-[7px] font-bold tracking-tight pt-1 leading-none ${themeStyles[selectedTheme].textPrimary}`}>
-                              haripathshala.online
+                              {getAppOrigin().replace("https://", "").replace("http://", "")}
                             </p>
                           </div>
                         </div>

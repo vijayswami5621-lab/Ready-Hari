@@ -6,6 +6,7 @@ import { db } from '../../firebase/config';
 import { SEO } from '../../components/SEO';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAppSettings } from '../../contexts/AppSettingsContext';
+import { getAppOrigin } from '../../utils/urlHelper';
 
 export const ContactScreen = () => {
   const navigate = useNavigate();
@@ -89,8 +90,8 @@ export const ContactScreen = () => {
                <Globe className="text-saffron-dark shrink-0" size={18} />
                <div>
                  <p className="text-brown-light dark:text-slate-400 text-xs">Website</p>
-                 <a href={officialDetails?.website || "https://haripathshala.online"} target="_blank" rel="noopener noreferrer" className="font-medium text-saffron hover:underline break-all">
-                   {officialDetails?.website ? officialDetails.website.replace("https://", "").replace("http://", "") : "haripathshala.online"}
+                 <a href={officialDetails?.website || getAppOrigin()} target="_blank" rel="noopener noreferrer" className="font-medium text-saffron hover:underline break-all">
+                   {officialDetails?.website ? officialDetails.website.replace("https://", "").replace("http://", "") : getAppOrigin().replace("https://", "").replace("http://", "")}
                  </a>
                </div>
              </div>

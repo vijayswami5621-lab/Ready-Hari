@@ -100,31 +100,31 @@ export const EditProfileScreen = () => {
   };
 
   const uploadToImgBB = async (file: File) => {
-    let apiKey = "";
-    try {
-      const configDocRef = doc(db, "api_config", "imgbb");
-      const configDocSnap = await getDoc(configDocRef);
-      if (configDocSnap.exists()) {
-        const configData = configDocSnap.data();
-        if (configData && configData.apiKey) {
-          apiKey = configData.apiKey;
+    let apiKey = import.meta.env.VITE_IMGBB_API_KEY || "";
+    if (!apiKey) {
+      try {
+        const configDocRef = doc(db, "api_config", "imgbb");
+        const configDocSnap = await getDoc(configDocRef);
+        if (configDocSnap.exists()) {
+          const configData = configDocSnap.data();
+          if (configData && configData.apiKey) {
+            apiKey = configData.apiKey;
+          }
+        } else {
+          apiKey = "5a0318eba0e6f6f0a4a8601d0006396a";
+          await setDoc(configDocRef, {
+            apiKey: apiKey,
+            provider: "ImgBB",
+            updatedAt: new Date().toISOString()
+          });
         }
-      } else {
-        apiKey = "5a0318eba0e6f6f0a4a8601d0006396a";
-        await setDoc(configDocRef, {
-          apiKey: apiKey,
-          provider: "ImgBB",
-          updatedAt: new Date().toISOString()
-        });
+      } catch (errConfig) {
+        console.warn("Could not retrieve ImgBB key from Firestore:", errConfig);
       }
-    } catch (errConfig) {
-      console.warn("Could not retrieve ImgBB key from Firestore, using fallback:", errConfig);
-      apiKey = "5a0318eba0e6f6f0a4a8601d0006396a";
     }
 
     if (!apiKey) {
-      alert("Image upload service is not configured.");
-      return null;
+      apiKey = "5a0318eba0e6f6f0a4a8601d0006396a";
     }
 
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];

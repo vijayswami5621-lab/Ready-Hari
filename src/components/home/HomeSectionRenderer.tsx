@@ -12,6 +12,7 @@ import { getVideoThumbnail } from '../../utils/videoUtils';
 import { QuoteSkeleton, PanchangSkeleton, CategoryListSkeleton, VideoListSkeleton, ProductGridSkeleton } from '../Skeleton';
 import { useRealtimeCollection } from '../../hooks/useRealtimeCollection';
 import { useAppSettings } from '../../contexts/AppSettingsContext';
+import { getAppOrigin } from '../../utils/urlHelper';
 
 interface HomeSectionRendererProps {
   section: {
@@ -556,7 +557,7 @@ export const HomeSectionRenderer: React.FC<HomeSectionRendererProps> = ({
     case 'quick_links':
       return (
         <motion.section variants={itemVariants} className="grid grid-cols-2 gap-4">
-          <a href="https://haripathshala.online" target="_blank" rel="noopener noreferrer" className="block w-full group">
+          <a href={getAppOrigin()} target="_blank" rel="noopener noreferrer" className="block w-full group">
             <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-[22px] shadow-sm border border-orange-100/60 dark:border-slate-800 flex flex-col items-center justify-center text-center hover:border-saffron-dark hover:shadow-[0_10px_20px_rgba(255,153,51,0.04)] transition-all duration-300">
               <div className="w-10 h-10 bg-orange-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform text-saffron-dark">
                 <ExternalLink size={18} />
@@ -807,7 +808,7 @@ export const HomeSectionRenderer: React.FC<HomeSectionRendererProps> = ({
                   <SecureImage src={event.coverImage || event.image} alt={event.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent flex items-end p-4">
                     <span className="bg-saffron text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-                      Live Satsang
+                      {event.category || 'Satsang'}
                     </span>
                   </div>
                 </div>

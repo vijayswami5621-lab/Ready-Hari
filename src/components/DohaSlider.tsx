@@ -155,7 +155,7 @@ export const DohaSlider = ({ title }: { title?: string }) => {
             </div>
             
             <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-900/5 dark:bg-amber-400/10 rounded-full border border-amber-900/10 dark:border-amber-400/20 text-[10px] font-bold text-amber-800 dark:text-amber-300">
-              <Sparkles size={10} className="text-amber-600 dark:text-amber-400 animate-spin" /> Live Katha
+              <Sparkles size={10} className="text-amber-600 dark:text-amber-400 animate-spin" /> Sanatan Doha
             </span>
           </div>
 

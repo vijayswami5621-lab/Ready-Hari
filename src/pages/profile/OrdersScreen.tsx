@@ -86,6 +86,20 @@ export const OrdersScreen = () => {
           bg: "bg-purple-50 dark:bg-purple-900/20",
           text: "Packed",
         };
+      case "processing":
+        return {
+          icon: Clock,
+          color: "text-amber-500",
+          bg: "bg-amber-50 dark:bg-amber-900/20",
+          text: "Processing",
+        };
+      case "paid":
+        return {
+          icon: CheckCircle2,
+          color: "text-emerald-500",
+          bg: "bg-emerald-50 dark:bg-emerald-900/20",
+          text: "Paid",
+        };
       default:
         return {
           icon: Clock,

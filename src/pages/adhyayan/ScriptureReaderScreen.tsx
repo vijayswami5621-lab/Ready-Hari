@@ -17,6 +17,7 @@ import { doc, setDoc, getDoc, collection, onSnapshot, query, where, getDocs } fr
 import Markdown from 'react-markdown';
 import { toPng } from 'html-to-image';
 import confetti from 'canvas-confetti';
+import { getAppOrigin, generateShareLink } from '../../utils/urlHelper';
 
 export const ScriptureReaderScreen = () => {
   const { id } = useParams<{ id: string }>();
@@ -1777,7 +1778,7 @@ export const ScriptureReaderScreen = () => {
                     <div className="flex items-center gap-3">
                       <div className="w-14 h-14 bg-white p-1 rounded-lg border border-amber-200 shrink-0">
                         <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://haripathshala.online/quiz/result/${showCertModal.id}`)}`}
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(generateShareLink(`/quiz/result/${showCertModal.id}`))}`}
                           alt="QR Verification"
                           className="w-full h-full"
                         />
@@ -1785,7 +1786,7 @@ export const ScriptureReaderScreen = () => {
                       <div className="text-left text-[9px] text-neutral-500 space-y-0.5">
                         <p className="font-bold text-amber-800 uppercase tracking-wider">VERIFY CREDENTIALS</p>
                         <p className="font-mono text-[8px]">ID: {showCertModal.id}</p>
-                        <p className="text-amber-600 hover:underline">haripathshala.online</p>
+                        <p className="text-amber-600 hover:underline">{getAppOrigin().replace("https://", "").replace("http://", "")}</p>
                       </div>
                     </div>
 

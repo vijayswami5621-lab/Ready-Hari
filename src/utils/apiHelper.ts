@@ -1,6 +1,8 @@
+import { getApiBaseUrl } from "./urlHelper";
+
 export const getApiUrl = (url: string): string => {
   if (url.startsWith('/api/')) {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const baseUrl = getApiBaseUrl();
     if (baseUrl) {
       return `${baseUrl.replace(/\/$/, '')}${url}`;
     }

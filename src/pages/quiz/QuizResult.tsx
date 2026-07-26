@@ -12,6 +12,7 @@ import {
 import { toPng } from 'html-to-image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGoBack } from '../../hooks/useGoBack';
+import { getAppOrigin, generateShareLink } from '../../utils/urlHelper';
 
 export const QuizResult = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -115,7 +116,7 @@ export const QuizResult = () => {
   };
 
   const handleShare = async (platform: 'whatsapp' | 'telegram' | 'facebook' | 'twitter' | 'native') => {
-    const shareUrl = `https://haripathshala.online/quiz/result/${sessionId}`;
+    const shareUrl = generateShareLink(`/quiz/result/${sessionId}`);
     const text = `🔱 I completed the "${historyEntry?.quizName || 'Spiritual Quiz'}" on Hari Pathshala with a score of ${historyEntry?.percentage || 0}% and earned a Certificate of Wisdom! Check it out here:`;
     
     if (platform === 'native') {
@@ -397,7 +398,7 @@ export const QuizResult = () => {
                       <div className="flex items-center gap-3">
                         <div className="w-14 h-14 bg-white p-1 rounded-lg border border-amber-200 shrink-0">
                           <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://haripathshala.online/quiz/result/${sessionId}`)}`}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(generateShareLink(`/quiz/result/${sessionId}`))}`}
                             alt="QR Verification"
                             className="w-full h-full"
                           />
@@ -405,7 +406,7 @@ export const QuizResult = () => {
                         <div className="text-left text-[9px] text-neutral-500 space-y-0.5">
                           <p className="font-bold text-amber-800 uppercase tracking-wider">{trans.verifyCredentials}</p>
                           <p className="font-mono text-[8px]">ID: {historyEntry.certificateId}</p>
-                          <p className="text-amber-600 hover:underline">haripathshala.online</p>
+                          <p className="text-amber-600 hover:underline">{getAppOrigin().replace("https://", "").replace("http://", "")}</p>
                         </div>
                       </div>
 

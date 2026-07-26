@@ -127,6 +127,8 @@ export const TrackOrderScreen = () => {
       label: "Payment Successful",
       active:
         order.status === "Confirmed" ||
+        order.status === "Processing" ||
+        order.status === "Paid" ||
         order.status === "Shipped" ||
         order.status === "Delivered",
     },
@@ -135,6 +137,8 @@ export const TrackOrderScreen = () => {
       label: "Shipment Created",
       active:
         !!order.trackingNumber ||
+        order.status === "Processing" ||
+        order.status === "Paid" ||
         order.status === "Shipped" ||
         order.status === "Delivered",
     },

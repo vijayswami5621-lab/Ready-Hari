@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRealtimeCollection } from '../hooks/useRealtimeCollection';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { getAppOrigin } from '../utils/urlHelper';
 
 export interface PaymentSettings {
   enabled: boolean;
@@ -127,7 +128,7 @@ export const defaultOfficialDetails: OfficialDetails = {
   organizationName: "Hari Pathshala",
   tagline: "ज्ञान • भक्ति • संस्कार",
   founderMessage: "Hari Pathshala is dedicated to making the timeless wisdom of Sanatan Dharma accessible through modern technology while preserving the authenticity of our sacred scriptures.",
-  website: "https://haripathshala.online",
+  website: getAppOrigin(),
   instagram: "https://www.instagram.com/hari_pathshala?igsh=MXMxZG5kd3h6aTRpdQ==",
   logo: "/logo.png",
   founderPhoto: "/founder.png",
@@ -189,7 +190,7 @@ const defaultSettings: AppSettings = {
   organizationName: 'Hari Pathshala',
   tagline: 'ज्ञान • भक्ति • संस्कार',
   founderMessage: '"Hari Pathshala is dedicated to making the timeless wisdom of Sanatan Dharma accessible through modern technology while preserving the authenticity of our sacred scriptures."',
-  website: 'https://haripathshala.online',
+  website: getAppOrigin(),
   instagram: 'https://www.instagram.com/hari_pathshala?igsh=MXMxZG5kd3h6aTRpdQ==',
   logo: '/logo.png',
   founderPhoto: 'https://images.unsplash.com/photo-1590073844006-33379778ae09?auto=format&fit=crop&w=800&q=80',
@@ -223,7 +224,7 @@ const defaultSettings: AppSettings = {
     community: true,
   },
   shareConfig: {
-    baseUrl: 'https://haripathshala.online',
+    baseUrl: getAppOrigin(),
     appUrl: 'https://play.google.com/store/apps/details?id=com.haripathshala.app',
     shareEnabled: true,
     deepLinkEnabled: true,

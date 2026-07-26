@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { getAppOrigin } from '../utils/urlHelper';
 
 interface SEOProps {
   title: string;
@@ -15,8 +16,8 @@ export const SEO: React.FC<SEOProps> = ({
   description, 
   name = "Hari Pathshala", 
   type = "website", 
-  image = "https://haripathshala.online/og-image.jpg",
-  url = "https://haripathshala.online" 
+  image = `${getAppOrigin()}/og-image.jpg`,
+  url = getAppOrigin()
 }) => {
   return (
     <Helmet>
