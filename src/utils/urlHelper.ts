@@ -16,12 +16,15 @@ export const isNativeApp = (): boolean => {
  * In native Capacitor, it falls back to the production API URL.
  */
 export const getAppOrigin = (): string => {
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  const prodUrl = envApiUrl || PRODUCTION_BACKEND_URL;
+
   if (typeof window === 'undefined') {
-    return PRODUCTION_BACKEND_URL;
+    return prodUrl;
   }
   
   if (isNativeApp()) {
-    return PRODUCTION_BACKEND_URL;
+    return prodUrl;
   }
   
   return window.location.origin;
@@ -35,12 +38,15 @@ export const getAppOrigin = (): string => {
  *   otherwise falls back to production backend URL.
  */
 export const getApiBaseUrl = (): string => {
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  const prodUrl = envApiUrl || PRODUCTION_BACKEND_URL;
+
   if (typeof window === 'undefined') {
-    return PRODUCTION_BACKEND_URL;
+    return prodUrl;
   }
 
   if (isNativeApp()) {
-    return PRODUCTION_BACKEND_URL;
+    return prodUrl;
   }
 
   const { hostname, origin } = window.location;
@@ -57,14 +63,22 @@ export const getApiBaseUrl = (): string => {
   // Deployed frontend-only hosts where the backend is not on the same host
   const isFrontendOnlyHost = hostname.endsWith('.netlify.app') || 
                              hostname.endsWith('.vercel.app') || 
-                             hostname.endsWith('.github.io');
+                             hostname.endsWith('.github.io') ||
+                             hostname.includes('netlify') ||
+                             hostname.includes('github') ||
+                             hostname.includes('vercel');
                              
   if (isFrontendOnlyHost) {
-    return PRODUCTION_BACKEND_URL;
+    return prodUrl;
   }
 
-  // Otherwise, use current origin
-  return origin;
+  // If we are running on AI Studio run.app preview container, use same origin
+  if (hostname.includes('.run.app') || hostname.includes('web-demo')) {
+    return origin;
+  }
+
+  // Otherwise, fallback to the production backend to ensure API calls never break
+  return prodUrl;
 };
 
 /**

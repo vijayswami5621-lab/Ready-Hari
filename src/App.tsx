@@ -19,6 +19,7 @@ import { OfflineOverlay } from './components/OfflineOverlay';
 import { syncTodayPanchang } from './services/panchangService';
 import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { useImageCacheStore } from './store/useImageCacheStore';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,9 @@ export default function App() {
   const { user, setUser, isLoading } = useAuthStore();
   const { cart, wishlist, setCart, setWishlist } = useStoreState();
   const startListeningImageCache = useImageCacheStore(state => state.startListening);
+
+  // Initialize push notifications (handles Web and native Android FCM tokens and click deep links)
+  usePushNotifications();
 
   useEffect(() => {
     startListeningImageCache();

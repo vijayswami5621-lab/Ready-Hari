@@ -151,11 +151,17 @@ export const RegisterScreen = () => {
     formData.append("image", fileToUpload);
 
     try {
-      const res = await axios.post(
-        `https://api.imgbb.com/1/upload?key=${apiKey}`,
-        formData,
-      );
-      const directUrl = res?.data?.data?.image?.url || res?.data?.data?.url;
+      const response = await window.fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      const resData = await response.json();
+      const directUrl = resData?.data?.image?.url || resData?.data?.url;
       if (!directUrl) {
         throw new Error("Invalid response, missing image URL.");
       }

@@ -122,6 +122,7 @@ export const CheckoutScreen = () => {
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
   const [serviceableError, setServiceableError] = useState<string>("");
   const [codAvailable, setCodAvailable] = useState<boolean | null>(null);
+  const [codCharge, setCodCharge] = useState<number>(0);
   const [deliveryEtd, setDeliveryEtd] = useState<string>("");
   const [courierPartner, setCourierPartner] = useState<string>("");
   const [isShiprocketTemporarilyDown, setIsShiprocketTemporarilyDown] = useState<boolean>(false);
@@ -197,6 +198,7 @@ export const CheckoutScreen = () => {
           body: JSON.stringify({
             pincode: selectedAddr.pincode,
             weight: totalWeight,
+            paymentMethod: paymentMethod,
           }),
         });
         
@@ -204,6 +206,7 @@ export const CheckoutScreen = () => {
           console.warn("[Checkout] Pincode not serviceable via Shiprocket, using free shipping fallback.");
           setCalculatedShipping(0);
           setCodAvailable(true);
+          setCodCharge(0);
           setDeliveryEtd("5-7 दिन");
           setCourierPartner("Standard Courier");
           setIsShiprocketTemporarilyDown(true);
@@ -217,6 +220,11 @@ export const CheckoutScreen = () => {
             setCodAvailable(data.codAvailable);
           } else {
             setCodAvailable(true);
+          }
+          if (data.codCharge !== undefined) {
+            setCodCharge(data.codCharge);
+          } else {
+            setCodCharge(paymentMethod === "cod" ? 50 : 0);
           }
           if (data.etd) {
             setDeliveryEtd(data.etd);
@@ -245,6 +253,7 @@ export const CheckoutScreen = () => {
       setIsShiprocketTemporarilyDown(true);
       setCalculatedShipping(0); // ₹0 shipping charge fallback
       setCodAvailable(true);
+      setCodCharge(0);
       setDeliveryEtd("5-7 दिन");
       setCourierPartner("Standard Courier");
       setServiceableError(""); // Empty error ensures checkout is never blocked
@@ -253,10 +262,10 @@ export const CheckoutScreen = () => {
     setIsCalculatingShipping(false);
   };
 
-  // Recalculate shipping when address changes
+  // Recalculate shipping when address or payment method changes
   useEffect(() => {
     performShippingCalculation();
-  }, [selectedAddressId, addresses, total, totalWeight]);
+  }, [selectedAddressId, addresses, total, totalWeight, paymentMethod]);
 
 
 
@@ -594,6 +603,8 @@ export const CheckoutScreen = () => {
         paymentMethod: paymentMethod,
         courierName: courierPartner || "Standard Courier",
         estimatedDelivery: deliveryEtd || "",
+        codAvailable: codAvailable !== null ? codAvailable : true,
+        codCharge: codCharge,
       };
 
       const verifyData = await fetchApi("/api/payment/verify", {
@@ -615,6 +626,8 @@ export const CheckoutScreen = () => {
             paymentMethod: paymentMethod,
             courierName: courierPartner || "Standard Courier",
             estimatedDelivery: deliveryEtd || "",
+            codAvailable: codAvailable !== null ? codAvailable : true,
+            codCharge: codCharge,
           },
           cart: cart,
         }),
@@ -1436,6 +1449,50 @@ export const CheckoutScreen = () => {
                       paymentMethod === "razorpay" ? "border-saffron bg-saffron animate-pulse" : "border-gray-300 dark:border-slate-600"
                     }`}>
                       {paymentMethod === "razorpay" && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cash on Delivery Option */}
+                <div 
+                  onClick={() => {
+                    if (codAvailable) {
+                      setPaymentMethod("cod");
+                    }
+                  }}
+                  className={`flex items-start p-4 rounded-2xl border-2 transition-all ${
+                    !codAvailable 
+                      ? "opacity-50 cursor-not-allowed border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50"
+                      : paymentMethod === "cod" 
+                        ? "border-saffron bg-saffron/5 shadow-sm cursor-pointer" 
+                        : "border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-orange-200 cursor-pointer"
+                  }`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <Truck className="text-saffron" size={20} />
+                      <span className={`font-bold ${paymentMethod === "cod" ? "text-saffron-dark dark:text-saffron" : "text-brown-dark dark:text-white"}`}>
+                        Cash on Delivery (COD)
+                      </span>
+                      {codCharge > 0 && codAvailable && (
+                        <span className="text-[10px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-950/40 px-2 py-0.5 rounded-full">
+                          +₹{codCharge} COD Charge
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-brown-light dark:text-slate-400 pl-8">
+                      {!codAvailable 
+                        ? "कैश ऑन डिलीवरी आपके पिनकोड पर उपलब्ध नहीं है।" 
+                        : "Pay cash at the time of delivery using Shiprocket's COD service."}
+                    </p>
+                  </div>
+                  <div className="shrink-0 mt-1">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      paymentMethod === "cod" && codAvailable ? "border-saffron bg-saffron animate-pulse" : "border-gray-300 dark:border-slate-600"
+                    }`}>
+                      {paymentMethod === "cod" && codAvailable && (
                         <div className="w-2 h-2 rounded-full bg-white" />
                       )}
                     </div>

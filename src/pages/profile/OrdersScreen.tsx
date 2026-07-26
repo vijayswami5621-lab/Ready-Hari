@@ -212,7 +212,7 @@ export const OrdersScreen = () => {
                         ORDER NO
                       </p>
                       <p className="text-sm font-bold text-brown-dark dark:text-slate-200 uppercase">
-                        {order.id?.slice(0, 10) || "UNKNOWN"}
+                        {order.humanOrderId || order.id || "UNKNOWN"}
                       </p>
                       <p className="text-[10px] text-brown-light dark:text-slate-500 mt-0.5">
                         {orderDate}

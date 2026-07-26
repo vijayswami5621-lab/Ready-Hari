@@ -69,6 +69,7 @@ import { AdhyayanScreen } from '../pages/adhyayan/AdhyayanScreen';
 import { CategoryDetailsScreen } from '../pages/adhyayan/CategoryDetailsScreen';
 import { VideoPlayerScreen } from '../pages/adhyayan/VideoPlayerScreen';
 import { ScriptureReaderScreen } from '../pages/adhyayan/ScriptureReaderScreen';
+import { ScripturesAdminScreen } from '../pages/adhyayan/ScripturesAdminScreen';
 import { AIGuruScreen } from '../pages/aiguru/AIGuruScreen';
 import { LoginScreen } from '../pages/auth/LoginScreen';
 import { StoreScreen } from '../pages/store/StoreScreen';
@@ -242,6 +243,7 @@ const router = createBrowserRouter([
   { path: '/adhyayan/video/:id', element: <ProtectedRoute><VideoPlayerScreen /></ProtectedRoute> },
   { path: '/adhyayan/pdf/:id', element: <ProtectedRoute><PDFViewerScreen /></ProtectedRoute> },
   { path: '/adhyayan/scripture/:id', element: <ProtectedRoute><ScriptureReaderScreen /></ProtectedRoute> },
+  { path: '/adhyayan/admin', element: <ProtectedRoute><ScripturesAdminScreen /></ProtectedRoute> },
   { path: '/store/product/:id', element: <ProtectedRoute><ProductDetailsScreen /></ProtectedRoute> },
   { path: '/store/cart', element: <ProtectedRoute><CartScreen /></ProtectedRoute> },
   { path: '/store/checkout', element: <ProtectedRoute><CheckoutScreen /></ProtectedRoute> },
@@ -272,6 +274,9 @@ const router = createBrowserRouter([
   { path: '/open/:id', element: <ContentResolver /> },
   { path: '*', element: <NotFoundScreen /> },
 ]);
+
+// Expose the router instance globally for programmatic routing outside of React render contexts (e.g., global hooks/background notifications)
+(window as any).router = router;
 
 export const AppRouter = () => {
   const { isSplashComplete } = useAppStore();

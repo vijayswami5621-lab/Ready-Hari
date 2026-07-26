@@ -148,19 +148,24 @@ export const EditProfileScreen = () => {
     uploadData.append("image", fileToUpload);
 
     try {
-      const res = await axios.post(
-        `https://api.imgbb.com/1/upload?key=${apiKey}`,
-        uploadData,
-      );
+      const response = await window.fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+        method: "POST",
+        body: uploadData,
+      });
       
-      const directUrl = res?.data?.data?.image?.url || res?.data?.data?.url;
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+      
+      const resData = await response.json();
+      const directUrl = resData?.data?.image?.url || resData?.data?.url;
       if (!directUrl) {
         throw new Error("Invalid response, missing image URL.");
       }
       return directUrl;
-    } catch (err) {
+    } catch (err: any) {
       console.error("ImgBB upload failed", err);
-      alert("Image upload failed. Please try again.");
+      alert(`Image upload failed: ${err.message || "Please try again."}`);
       return null;
     }
   };

@@ -242,7 +242,7 @@ export const TrackOrderScreen = () => {
             <h1 className="text-md font-bold font-sans text-brown-dark dark:text-white leading-tight">
               Order Details
             </h1>
-            <p className="text-[10px] font-mono text-saffron-dark font-bold">#{order.id?.slice(0, 12)}</p>
+            <p className="text-[10px] font-mono text-saffron-dark font-bold">#{order.humanOrderId || order.id}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -288,7 +288,7 @@ export const TrackOrderScreen = () => {
           <div className="flex justify-between items-start border-b border-orange-50 dark:border-slate-700/50 pb-3">
             <div>
               <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Order ID</p>
-              <p className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">{order.id}</p>
+              <p className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">{order.humanOrderId || order.id}</p>
               <p className="text-xs text-neutral-500 mt-1">{orderDate}</p>
             </div>
             <div className="text-right">

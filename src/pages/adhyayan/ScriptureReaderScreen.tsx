@@ -23,7 +23,34 @@ export const ScriptureReaderScreen = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const scripture = scriptureData[id || 'bhagavad_gita'] || scriptureData.bhagavad_gita;
+  const [scripture, setScripture] = useState<any>(() => {
+    return scriptureData[id || 'bhagavad_gita'] || scriptureData.bhagavad_gita;
+  });
+
+  // Dynamic scripture fetching from Firestore
+  useEffect(() => {
+    const staticData = scriptureData[id || 'bhagavad_gita'] || scriptureData.bhagavad_gita;
+    setScripture(staticData);
+
+    const fetchDynamicScripture = async () => {
+      try {
+        if (!id) return;
+        const ref = doc(db, 'adhyayan_scriptures', id);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const dbData = snap.data();
+          setScripture((prev: any) => ({
+            ...prev,
+            ...dbData,
+            chapters: dbData.chapters || prev.chapters || []
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load dynamic scripture details:", err);
+      }
+    };
+    fetchDynamicScripture();
+  }, [id]);
 
   // Active Main Tabs: 'video' | 'reading'
   const [activeTab, setActiveTab] = useState<'video' | 'reading'>('reading');

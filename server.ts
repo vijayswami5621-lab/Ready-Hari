@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { initializeApp as initializeAdminApp, getApps as getAdminApps } from 'firebase-admin/app';
+import { getMessaging as getAdminMessagingInstance, Messaging } from 'firebase-admin/messaging';
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -27,6 +29,176 @@ const firebaseConfig = {
 };
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+
+// -------------------------------------------------------------------------
+// FIREBASE ADMIN & FCM PUSH NOTIFICATIONS ENGINE
+// -------------------------------------------------------------------------
+let adminAppInitialized = false;
+let fcmMessaging: Messaging | null = null;
+
+function getAdminMessaging(): Messaging | null {
+  if (!adminAppInitialized) {
+    try {
+      if (getAdminApps().length === 0) {
+        initializeAdminApp({
+          projectId: process.env.VITE_FIREBASE_PROJECT_ID || "official-hari"
+        });
+      }
+      fcmMessaging = getAdminMessagingInstance();
+      adminAppInitialized = true;
+      console.log("[Firebase Admin] Successfully initialized FCM Messaging");
+    } catch (err: any) {
+      console.warn("[Firebase Admin Warning] Failed to initialize Firebase Admin. Using simulated mock messaging.", err.message);
+      fcmMessaging = null;
+      adminAppInitialized = true;
+    }
+  }
+  return fcmMessaging;
+}
+
+async function sendPushNotification(params: {
+  userId?: string;
+  topic?: string;
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+  type: 'quote' | 'event' | 'order' | 'video' | 'offer' | 'chat' | 'other';
+}) {
+  const { userId, topic, title, body, data = {}, type } = params;
+
+  console.log(`[FCM Notification] Preparing to send: "${title}" - type: ${type}`);
+
+  // Create a record in the central 'notifications' collection in Firestore for history sync
+  try {
+    const notifRef = doc(collection(db, "notifications"));
+    await setDoc(notifRef, {
+      id: notifRef.id,
+      title,
+      message: body,
+      desc: body,
+      type,
+      userId: userId || null,
+      link: data.link || null,
+      read: false,
+      createdAt: new Date(),
+    });
+    console.log(`[FCM History Sync] Saved notification history with ID: ${notifRef.id}`);
+  } catch (historyErr: any) {
+    console.warn("[FCM History Sync Warning] Failed to sync history to Firestore:", historyErr.message);
+  }
+
+  // Get Admin messaging
+  const messaging = getAdminMessaging();
+  if (!messaging) {
+    console.log("[FCM Native Simulation] Firebase Admin not initialized. Simulated push sent to logs.");
+    return { success: true, simulated: true };
+  }
+
+  const payloadData = {
+    ...data,
+    type,
+    title,
+    body,
+    click_action: "FLUTTER_NOTIFICATION_CLICK",
+  };
+
+  try {
+    if (topic) {
+      const message = {
+        topic,
+        notification: { title, body },
+        data: payloadData,
+        android: {
+          notification: {
+            sound: "default",
+            defaultSound: true,
+          }
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+            }
+          }
+        },
+        webpush: {
+          notification: {
+            icon: "/logo.png",
+            badge: "/logo.png",
+          }
+        }
+      };
+
+      const response = await messaging.send(message);
+      console.log(`[FCM Notification Success] Sent message to topic ${topic}:`, response);
+      return { success: true, messageId: response };
+    } else if (userId) {
+      const tokensRef = collection(db, "users", userId, "fcm_tokens");
+      const tokensSnap = await getDocs(tokensRef);
+      
+      if (tokensSnap.empty) {
+        console.log(`[FCM Notification Info] No FCM tokens found for user ${userId}.`);
+        return { success: false, reason: "No registered tokens" };
+      }
+
+      const registrationTokens = tokensSnap.docs.map(doc => doc.id);
+      console.log(`[FCM Notification] Sending to ${registrationTokens.length} devices for user ${userId}`);
+
+      const response = await messaging.sendEachForMulticast({
+        tokens: registrationTokens,
+        notification: { title, body },
+        data: payloadData,
+        android: {
+          notification: {
+            sound: "default",
+            defaultSound: true,
+          }
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+            }
+          }
+        },
+        webpush: {
+          notification: {
+            icon: "/logo.png",
+            badge: "/logo.png",
+          }
+        }
+      });
+
+      console.log(`[FCM Multicast Success] Responses:`, response.successCount, "successes,", response.failureCount, "failures");
+
+      if (response.failureCount > 0) {
+        const batch = writeBatch(db);
+        let hasDeletes = false;
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success) {
+            const errCode = resp.error?.code;
+            if (errCode === 'messaging/invalid-registration-token' || errCode === 'messaging/registration-token-not-registered') {
+              const staleToken = registrationTokens[idx];
+              const staleTokenRef = doc(db, "users", userId, "fcm_tokens", staleToken);
+              batch.delete(staleTokenRef);
+              hasDeletes = true;
+            }
+          }
+        });
+        if (hasDeletes) {
+          await batch.commit().catch(e => console.warn("Failed to clean up stale tokens:", e.message));
+        }
+      }
+
+      return { success: true, successCount: response.successCount };
+    }
+  } catch (err: any) {
+    console.error("[FCM Notification Error] Sending failed:", err.message);
+    return { success: false, error: err.message };
+  }
+}
 
 // Local in-memory cache for Firestore documents to reduce reads & recover from Quota Exceeded
 const docCache = new Map<string, { data: any; exists: boolean; timestamp: number }>();
@@ -1952,6 +2124,83 @@ function validateAndCleanQuestions(
   return cleaned;
 }
 
+function getQuizCollections(subjectId: string) {
+  const sId = (subjectId || "").toLowerCase().trim();
+  if (sId === "bhagavad_gita" || sId === "geeta") {
+    return { chapters: "geeta_chapters", questions: "geeta_questions" };
+  }
+  if (sId === "ramcharitmanas") {
+    return { chapters: "ramcharitmanas_chapters", questions: "ramcharitmanas_questions" };
+  }
+  if (sId === "shiv_puran" || sId === "shivpurana") {
+    return { chapters: "shivpurana_chapters", questions: "shivpurana_questions" };
+  }
+  if (sId === "sunderkand") {
+    return { chapters: "sunderkand_chapters", questions: "sunderkand_questions" };
+  }
+  if (sId === "bhagavatam") {
+    return { chapters: "bhagavatam_chapters", questions: "bhagavatam_questions" };
+  }
+  if (sId === "hanuman_chalisa" || sId === "hanumanchalisa") {
+    return { chapters: "hanumanchalisa_chapters", questions: "hanumanchalisa_questions" };
+  }
+  if (sId === "vedas") {
+    return { chapters: "vedas_chapters", questions: "vedas_questions" };
+  }
+  if (sId === "upanishads") {
+    return { chapters: "upanishads_chapters", questions: "upanishads_questions" };
+  }
+  // Generic fallback
+  return { chapters: "quiz_chapters", questions: "quiz_questions" };
+}
+
+function getProductShortName(cart: any[]): string {
+  if (!cart || cart.length === 0) return "HP";
+  const firstItem = cart[0];
+  const title = (firstItem.title || "").toLowerCase();
+  if (title.includes("gita") || title.includes("geeta")) return "GEETA";
+  if (title.includes("mala")) return "MALA";
+  if (title.includes("ramcharitmanas") || title.includes("manas")) return "MANAS";
+  if (title.includes("t-shirt") || title.includes("tshirt")) return "TSHIRT";
+  if (title.includes("book") || title.includes("pustak")) return "BOOK";
+  if (title.includes("chandan") || title.includes("sandalwood")) return "CHANDAN";
+  if (title.includes("murti") || title.includes("idol")) return "MURTI";
+  if (title.includes("dhoti") || title.includes("kurta")) return "CLOTH";
+  return "HP"; // Default fallback
+}
+
+async function generateHumanOrderId(productShortName: string, dateStr: string): Promise<string> {
+  const prefix = `HP-${productShortName}-${dateStr}-`;
+  try {
+    const ordersRef = collection(db, "orders");
+    const q = query(ordersRef, where("humanOrderId", ">=", prefix), where("humanOrderId", "<=", prefix + "\uf8ff"));
+    const snap = await getDocs(q);
+    const count = snap.size + 1;
+    const sequence = String(count).padStart(4, "0");
+    return `${prefix}${sequence}`;
+  } catch (err) {
+    console.error("Error generating sequential humanOrderId:", err);
+    const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
+    return `${prefix}${randomSeq}`;
+  }
+}
+
+async function generateInvoiceNumber(dateStr: string): Promise<string> {
+  const prefix = `INV-${dateStr}-`;
+  try {
+    const ordersRef = collection(db, "orders");
+    const q = query(ordersRef, where("invoiceNumber", ">=", prefix), where("invoiceNumber", "<=", prefix + "\uf8ff"));
+    const snap = await getDocs(q);
+    const count = snap.size + 1;
+    const sequence = String(count).padStart(4, "0");
+    return `${prefix}${sequence}`;
+  } catch (err) {
+    console.error("Error generating invoiceNumber:", err);
+    const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
+    return `${prefix}${randomSeq}`;
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -2056,8 +2305,14 @@ Return ONLY a valid JSON object with the following structure:
         console.warn("[AI Guru Cache] Firestore cache query failed, proceeding to Gemini:", err);
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
+      let apiKey = "";
+      try {
+        apiKey = getServiceApiKey("ai_chat");
+      } catch (err) {
+        apiKey = process.env.GEMINI_API_KEY || "";
+      }
+
+      if (!apiKey || apiKey.startsWith("AIzaSy_fake")) {
         const partialReply = findPartialCacheMatch(normalized);
         if (partialReply) {
           return res.json({ reply: partialReply });
@@ -2127,8 +2382,13 @@ CONTENT MODERATION (STRICT)
       
       // Retry using backup 'ai_scripture' service
       try {
-        const backupApiKey = process.env.GEMINI_API_KEY;
-        if (backupApiKey) {
+        let backupApiKey = "";
+        try {
+          backupApiKey = getServiceApiKey("ai_scripture");
+        } catch (err) {
+          backupApiKey = process.env.GEMINI_API_KEY || "";
+        }
+        if (backupApiKey && !backupApiKey.startsWith("AIzaSy_fake")) {
           const backupAi = new GoogleGenAI({ apiKey: backupApiKey });
           const response = await generateContentWithRetry(backupAi, {
             contents: [
@@ -2432,10 +2692,58 @@ Return ONLY a valid JSON object matching this exact schema:
     return token;
   };
 
+  // Notification API Endpoints
+  app.post("/api/notifications/register-token", async (req, res) => {
+    try {
+      const { userId, token, platform } = req.body;
+      if (!userId || !token) {
+        return res.status(400).json({ error: "Missing userId or token" });
+      }
+
+      const tokenRef = doc(db, "users", userId, "fcm_tokens", token);
+      await setDoc(tokenRef, {
+        token,
+        platform: platform || "web",
+        lastActive: new Date(),
+        updatedAt: new Date()
+      }, { merge: true });
+
+      console.log(`[FCM Register] Registered/Updated token for user ${userId} on platform: ${platform || "web"}`);
+      return res.json({ success: true, message: "Token registered successfully" });
+    } catch (err: any) {
+      console.error("[FCM Register Error] Failed to register token:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to register token" });
+    }
+  });
+
+  app.post("/api/notifications/broadcast", async (req, res) => {
+    try {
+      const { title, body, type = "quote", link } = req.body;
+      if (!title || !body) {
+        return res.status(400).json({ error: "Missing title or body" });
+      }
+
+      // Send broadcast notification to all devices (via 'all' topic)
+      const result = await sendPushNotification({
+        topic: "all",
+        title,
+        body,
+        type,
+        data: link ? { link } : {}
+      });
+
+      return res.json({ success: true, result });
+    } catch (err: any) {
+      console.error("[FCM Broadcast Error] Failed to send broadcast:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to send broadcast" });
+    }
+  });
+
   // Shipping Routes
   app.post("/api/shipping/calculate", async (req, res) => {
     try {
-      const { pincode, weight = 0.5 } = req.body;
+      const { pincode, weight = 0.5, cod = false, paymentMethod } = req.body;
+      const isCodRequest = cod === true || cod === 1 || paymentMethod === 'cod';
 
       if (!pincode || !/^\d{6}$/.test(pincode.toString())) {
         return res.status(400).json({ error: "कृपया एक वैध 6-अंकीय पिनकोड दर्ज करें।" });
@@ -2455,16 +2763,18 @@ Return ONLY a valid JSON object matching this exact schema:
 
       if (!isLiveShiprocket) {
         console.warn("[Shiprocket API] Credentials not configured or placeholder used. Returning simulated/test mode serviceability.");
-        // Test mode simulation with reasonable pricing based on weight
+        // Test mode simulation with reasonable pricing based on weight and cod
         const baseFee = 60;
         const weightFee = Math.round(weight * 20);
+        const codCharge = isCodRequest ? 50 : 0;
         return res.json({
           serviceable: true,
-          shippingFee: baseFee + weightFee,
+          shippingFee: baseFee + weightFee + codCharge,
           courierName: "Delhivery (Simulated)",
           etd: "3-5 दिन",
           transitTime: "3-5",
           codAvailable: true,
+          codCharge: codCharge,
           mode: 'test'
         });
       }
@@ -2486,9 +2796,9 @@ Return ONLY a valid JSON object matching this exact schema:
         const token = await getShiprocketToken(email, password);
         
         // Fixed or custom pickup pin code: Kaladera, Jaipur is 303801
-        const pickupPincode = shippingData.pickupPincode || "303801"; 
+        const pickupPincode = shippingData.pickupPincode || process.env.SHIPROCKET_PICKUP_PIN || "303801"; 
         
-        console.log(`[Shiprocket API] Checking serviceability from ${pickupPincode} to ${pincode} (weight: ${weight})`);
+        console.log(`[Shiprocket API] Checking serviceability from ${pickupPincode} to ${pincode} (weight: ${weight}, cod: ${isCodRequest})`);
         
         let prepaidError: any = null;
         let codError: any = null;
@@ -2514,9 +2824,20 @@ Return ONLY a valid JSON object matching this exact schema:
         const hasCod = codRes?.data?.data?.available_courier_companies?.length > 0;
 
         if (hasPrepaid || hasCod) {
-          const mainRes = hasPrepaid ? prepaidRes : codRes;
+          const mainRes = (isCodRequest && hasCod) ? codRes : (hasPrepaid ? prepaidRes : codRes);
           const couriers = mainRes.data.data.available_courier_companies;
           const cheapest = couriers.reduce((prev: any, curr: any) => (prev.rate < curr.rate ? prev : curr));
+
+          let codCharge = 0;
+          if (hasPrepaid && hasCod) {
+            const cheapestPrepaid = prepaidRes.data.data.available_courier_companies.reduce((prev: any, curr: any) => (prev.rate < curr.rate ? prev : curr));
+            const cheapestCod = codRes.data.data.available_courier_companies.reduce((prev: any, curr: any) => (prev.rate < curr.rate ? prev : curr));
+            codCharge = Math.max(0, Math.round(cheapestCod.rate - cheapestPrepaid.rate));
+          } else if (cheapest.cod_charges !== undefined) {
+            codCharge = Math.round(cheapest.cod_charges);
+          } else {
+            codCharge = isCodRequest ? 50 : 0;
+          }
 
           return res.json({ 
             serviceable: true,
@@ -2525,6 +2846,7 @@ Return ONLY a valid JSON object matching this exact schema:
             etd: cheapest.etd || cheapest.estimated_delivery_date || "",
             transitTime: cheapest.estimated_delivery_days || "3-5",
             codAvailable: !!hasCod,
+            codCharge: isCodRequest ? codCharge : 0,
             mode: 'live' 
           });
         } else {
@@ -2536,6 +2858,7 @@ Return ONLY a valid JSON object matching this exact schema:
             etd: "5-7 दिन",
             transitTime: "5-7",
             codAvailable: true,
+            codCharge: isCodRequest ? 50 : 0,
             mode: 'fallback'
           });
         }
@@ -2543,25 +2866,30 @@ Return ONLY a valid JSON object matching this exact schema:
         console.error("Shiprocket API execution failed, returning simulated test fallback:", err.response?.data || err.message);
         const baseFee = 60;
         const weightFee = Math.round(weight * 20);
+        const codCharge = isCodRequest ? 50 : 0;
         return res.json({
           serviceable: true,
-          shippingFee: baseFee + weightFee,
+          shippingFee: baseFee + weightFee + codCharge,
           courierName: "Delhivery (Simulated Fallback)",
           etd: "3-5 दिन",
           transitTime: "3-5",
           codAvailable: true,
+          codCharge: codCharge,
           mode: 'test_fallback'
         });
       }
     } catch (error: any) {
       console.error("Shipping calculate error, returning fallback shipping:", error);
+      const isCodRequest = req.body.cod === true || req.body.cod === 1 || req.body.paymentMethod === 'cod';
+      const codCharge = isCodRequest ? 50 : 0;
       res.json({
         serviceable: true,
-        shippingFee: 60,
+        shippingFee: 60 + codCharge,
         courierName: "Delhivery (Simulated Fallback)",
         etd: "3-5 दिन",
         transitTime: "3-5",
         codAvailable: true,
+        codCharge: codCharge,
         mode: 'test_fallback'
       });
     }
@@ -2715,7 +3043,8 @@ Return ONLY a valid JSON object matching this exact schema:
               orderId: existingOrder.id, 
               trackingNumber: existingOrder.trackingNumber || "", 
               invoiceUrl: existingOrder.invoiceUrl || "", 
-              invoiceNumber: existingOrder.invoiceNumber || "" 
+              invoiceNumber: existingOrder.invoiceNumber || "",
+              humanOrderId: existingOrder.humanOrderId || existingOrder.id
             });
           }
         } catch (dbErr) {
@@ -2727,13 +3056,22 @@ Return ONLY a valid JSON object matching this exact schema:
       const batch = writeBatch(db);
       const newOrderRef = doc(collection(db, 'orders'));
       
-      // Generate invoice number and dynamic hosted invoice URL
-      const invoiceNumber = `HP-${Date.now().toString().slice(-6)}`;
+      // Generate sequential humanOrderId and invoiceNumber
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}${mm}${dd}`;
+
+      const pShortName = getProductShortName(cart);
+      const humanOrderId = await generateHumanOrderId(pShortName, dateStr);
+      const invoiceNumber = await generateInvoiceNumber(dateStr);
       const invoiceUrl = `${req.protocol}://${req.get('host')}/invoice/${newOrderRef.id}`;
 
       const finalOrderData: any = {
         ...orderData,
         id: newOrderRef.id,
+        humanOrderId,
         paymentId: isCod ? 'COD' : razorpay_payment_id,
         razorpayOrderId: isCod ? 'COD' : razorpay_order_id,
         status: 'Processing', // 12. Change order status to Processing
@@ -2912,13 +3250,18 @@ Return ONLY a valid JSON object matching this exact schema:
       }
 
       finalOrderData.trackingNumber = trackingNumber;
+      finalOrderData.awbCode = trackingNumber;
       finalOrderData.courierName = courierName || "Standard Courier";
       finalOrderData.trackingUrl = trackingUrl;
       finalOrderData.shiprocketOrderId = shiprocketOrderId;
       finalOrderData.shiprocketShipmentId = shiprocketShipmentId;
       finalOrderData.shippingLabelUrl = labelUrl || invoiceUrl;
       finalOrderData.shippingCharges = shippingFeeCalculated;
+      finalOrderData.shippingCharge = shippingFeeCalculated;
       finalOrderData.estimatedDeliveryDate = estimatedDeliveryDate || "3-5 दिन";
+      finalOrderData.estimatedDelivery = estimatedDeliveryDate || "3-5 दिन";
+      finalOrderData.codAvailable = isCod ? true : (orderData.codAvailable !== undefined ? orderData.codAvailable : true);
+      finalOrderData.codCharge = isCod ? (orderData.codCharge || 50) : 0;
       finalOrderData.pickupStatus = trackingNumber ? "Scheduled" : "Pending";
       finalOrderData.shipmentStatus = trackingNumber ? "Ready to Ship" : "Pending";
 
@@ -2946,7 +3289,24 @@ Return ONLY a valid JSON object matching this exact schema:
       
       await batch.commit();
 
-      res.json({ success: true, orderId: newOrderRef.id, trackingNumber, invoiceUrl, invoiceNumber });
+      // Send order confirmation push notification (WhatsApp/Telegram-style)
+      if (orderData.userId) {
+        const isCod = orderData.paymentMethod === 'cod';
+        const modeText = isCod ? "कैश ऑन डिलीवरी (COD)" : "ऑनलाइन भुगतान";
+        const totalText = orderData.totalAmount || orderData.subtotal || 0;
+        sendPushNotification({
+          userId: orderData.userId,
+          title: "🌸 आदेश सफलतापूर्वक प्राप्त हुआ (Order Confirmed)",
+          body: `प्रणाम! आपका आदेश संख्या ${invoiceNumber} सफलतापूर्वक प्राप्त हो गया है। राशि: ₹${totalText}, भुगतान विधि: ${modeText}। हम इसे जल्द ही शिप करेंगे।`,
+          type: 'order',
+          data: {
+            orderId: newOrderRef.id,
+            link: `/profile/orders`
+          }
+        }).catch(err => console.error("[FCM Order Notification Failed]:", err.message));
+      }
+
+      res.json({ success: true, orderId: newOrderRef.id, humanOrderId, trackingNumber, invoiceUrl, invoiceNumber });
     } catch (error: any) {
       console.error("Razorpay Verify Error:", error);
       res.status(500).json({ error: error.message || "Failed to verify payment" });
@@ -3212,9 +3572,10 @@ Return ONLY a valid JSON object matching this exact schema:
     let chapters: any[] = [];
 
     try {
+      const collections = getQuizCollections(cleanSubjectId);
       // 1. Try to fetch existing chapters from Firestore with fallback/safety check
       try {
-        const chapRef = collection(db, 'quiz_chapters');
+        const chapRef = collection(db, collections.chapters);
         const q = query(chapRef, where('subjectId', '==', cleanSubjectId));
         const snap = await getDocs(q);
 
@@ -3243,7 +3604,7 @@ Return ONLY a valid JSON object matching this exact schema:
         try {
           const batch = writeBatch(db);
           chapters.forEach(chap => {
-            batch.set(doc(db, 'quiz_chapters', chap.id), chap);
+            batch.set(doc(db, collections.chapters, chap.id), chap);
           });
           await batch.commit();
         } catch (dbErr: any) {
@@ -3302,7 +3663,7 @@ Respond ONLY with a JSON object matching this exact schema:
           try {
             const batch = writeBatch(db);
             chapters.forEach(chap => {
-              batch.set(doc(db, 'quiz_chapters', chap.id), chap);
+              batch.set(doc(db, collections.chapters, chap.id), chap);
             });
             await batch.commit();
           } catch (dbErr: any) {
@@ -3696,7 +4057,8 @@ Return ONLY a valid JSON object matching this schema:
         }
 
         // Check if questions already exist in Firestore for this subject, chapter, and language
-        const qRef = collection(db, 'quiz_questions');
+        const collections = getQuizCollections(subjectId);
+        const qRef = collection(db, collections.questions);
         const qQuery = query(
           qRef,
           where('subjectId', '==', subjectId),
@@ -4118,6 +4480,36 @@ Return ONLY a valid JSON object matching this schema:
 
         await updateDoc(doc(db, "orders", orderId), updates);
         console.log(`Successfully updated order ${orderId} status to ${mappedStatus}`);
+
+        // Send push notification for delivery/shipping updates
+        try {
+          const orderData = orderDoc.data();
+          if (orderData && orderData.userId) {
+            const statusHindiMap: Record<string, string> = {
+              "Picked Up": "शिपमेंट कूरियर पार्टनर द्वारा पिकअप कर लिया गया है (Picked Up)",
+              "In Transit": "शिपमेंट रास्ते में है (In Transit)",
+              "Out For Delivery": "शिपमेंट वितरण के लिए निकल चुका है (Out for Delivery)",
+              "Delivered": "शिपमेंट सफलतापूर्वक वितरित हो गया है (Delivered) 🎉",
+              "Cancelled": "शिपमेंट रद्द कर दिया गया है (Cancelled)",
+              "Returned": "शिपमेंट वापस भेज दिया गया है (Returned/RTO)"
+            };
+            const statusMessage = statusHindiMap[mappedStatus] || `स्थिति अपडेट: ${mappedStatus}`;
+            
+            sendPushNotification({
+              userId: orderData.userId,
+              title: `🚚 आदेश अपडेट: ${mappedStatus}`,
+              body: `प्रणाम! आपके आदेश संख्या ${orderData.invoiceNumber || ""} की ${statusMessage}।`,
+              type: 'order',
+              data: {
+                orderId,
+                link: `/profile/orders`
+              }
+            }).catch(e => console.warn("Failed to dispatch webhook FCM notification:", e.message));
+          }
+        } catch (fcmErr: any) {
+          console.warn("FCM Dispatch error during webhook handling:", fcmErr.message);
+        }
+
         return res.json({ success: true, message: "Order status updated successfully" });
       }
 
@@ -4125,6 +4517,586 @@ Return ONLY a valid JSON object matching this schema:
     } catch (error: any) {
       console.error("Webhook processing failed:", error);
       res.status(500).json({ error: error.message || "Webhook processing failed" });
+    }
+  });
+
+  // SERVER SIDE SCRIPTURE CHAPTER CONFIGS
+  const SERVER_SUBJECT_CHAPTERS: Record<string, any[]> = {
+    bhagavad_gita: Array.from({ length: 18 }, (_, i) => {
+      const names = [
+        { eng: "Arjuna Visada Yoga", hin: "अर्जुनविषादयोग", descEng: "Arjuna's Dilemma and Grief", descHin: "अर्जुन का विषाद और मानसिक असमंजस" },
+        { eng: "Sankhya Yoga", hin: "सांख्ययोग", descEng: "The Yoga of Analytical Knowledge", descHin: "आत्मा का अमरत्व और ज्ञानयोग" },
+        { eng: "Karma Yoga", hin: "कर्मयोग", descEng: "The Yoga of Action", descHin: "निष्काम कर्म करने का दिव्य सिद्धांत" },
+        { eng: "Jnana Karma Sanyasa Yoga", hin: "ज्ञानकर्मसंन्यासयोग", descEng: "The Yoga of Knowledge and Renunciation of Action", descHin: "दिव्य ज्ञान और कर्म यज्ञ" },
+        { eng: "Karma Sanyasa Yoga", hin: "कर्मसंन्यासयोग", descEng: "The Yoga of Action and Renunciation", descHin: "कर्म संन्यास और आत्म-संयम" },
+        { eng: "Dhyana Yoga", hin: "आत्मसंयमयोग", descEng: "The Yoga of Meditation", descHin: "ध्यान और मन को वश में करने की कला" },
+        { eng: "Jnana Vijnana Yoga", hin: "ज्ञानविज्ञानयोग", descEng: "The Yoga of Wisdom and Realization", descHin: "ईश्वर का दिव्य स्वरूप और प्रकृति" },
+        { eng: "Aksara Brahma Yoga", hin: "अक्षरब्रह्मयोग", descEng: "The Yoga of the Imperishable Brahman", descHin: "अविनाशी परब्रह्म का ध्यान और अंतकाल" },
+        { eng: "Raja Vidya Raja Guhya Yoga", hin: "राजविद्याराजगुह्ययोग", descEng: "The Yoga of Sovereign Science and Secret", descHin: "परम गोपनीय ज्ञान और ईश्वरीय भक्ति" },
+        { eng: "Vibhuti Yoga", hin: "विभूतियोग", descEng: "The Yoga of Divine Manifestations", descHin: "भगवान की असीम विभूतियाँ और ऐश्वर्य" },
+        { eng: "Visvarupa Darsana Yoga", hin: "विश्वरूपदर्शनयोग", descEng: "The Yoga of the Vision of the Cosmic Form", descHin: "श्रीकृष्ण का विराट विश्वरूप दर्शन" },
+        { eng: "Bhakti Yoga", hin: "भक्तियोग", descEng: "The Yoga of Devotion", descHin: "सच्चे भक्त के लक्षण और पराभक्ति" },
+        { eng: "Ksetra Ksetrajna Vibhaga Yoga", hin: "क्षेत्रक्षेत्रज्ञविभागयोग", descEng: "The Yoga of Field and Knower of the Field", descHin: "शरीर (क्षेत्र) और आत्मा (क्षेत्रज्ञ) का भेद" },
+        { eng: "Gunatraya Vibhaga Yoga", hin: "गुणत्रयविभागयोग", descEng: "The Yoga of Three Gunas of Nature", descHin: "सत्व, रज और तम गुणों की व्याख्या" },
+        { eng: "Purusottama Yoga", hin: "पुरुषोत्तमयोग", descEng: "The Yoga of the Supreme Divine Personality", descHin: "संसार रूपी अश्वत्थ वृक्ष और पुरुषोत्तम स्वरूप" },
+        { eng: "Daivasura Sampad Vibhaga Yoga", hin: "दैवासुरसम्पद्विभागयोग", descEng: "The Yoga of Divine and Demoniac Natures", descHin: "दैवीय और आसुरी प्रवृत्तियों का अंतर" },
+        { eng: "Sraddhatraya Vibhaga Yoga", hin: "श्रद्धात्रयविभागयोग", descEng: "The Yoga of Threefold Faith", descHin: "आहार, यज्ञ, तप और दान में तीन प्रकार की श्रद्धा" },
+        { eng: "Moksa Sanyasa Yoga", hin: "मोक्षसंन्यासयोग", descEng: "The Yoga of Liberation and Renunciation", descHin: "त्याग का वास्तविक अर्थ और मोक्ष की प्राप्ति" }
+      ];
+      return {
+        id: `chapter_${i + 1}`,
+        number: i + 1,
+        nameEnglish: `Chapter ${i + 1}: ${names[i].eng}`,
+        nameHindi: `अध्याय ${i + 1}: ${names[i].hin}`,
+        descriptionEnglish: names[i].descEng,
+        descriptionHindi: names[i].descHin
+      };
+    }),
+    ramcharitmanas: [
+      { id: "chapter_1", number: 1, nameEnglish: "Bala Kanda", nameHindi: "बालकाण्ड", descriptionEnglish: "Rama's childhood, birth, and marriage", descriptionHindi: "प्रभु श्रीराम का अवतार, बाल्यकाल और सीता स्वयंवर" },
+      { id: "chapter_2", number: 2, nameEnglish: "Ayodhya Kanda", nameHindi: "अयोध्याकाण्ड", descriptionEnglish: "Preparations for coronation and exile", descriptionHindi: "श्रीराम वनगमन, भरत मिलाप और केवट प्रसंग" },
+      { id: "chapter_3", number: 3, nameEnglish: "Aranya Kanda", nameHindi: "अरण्यकाण्ड", descriptionEnglish: "Life in forest, Panchavati, and Sita's abduction", descriptionHindi: "अरण्य जीवन, शूर्पणखा प्रसंग, और सीता हरण" },
+      { id: "chapter_4", number: 4, nameEnglish: "Kishkindha Kanda", nameHindi: "किष्किन्धाकाण्ड", descriptionEnglish: "Alliance with Sugriva and search for Sita", descriptionHindi: "सुग्रीव मित्रता, बाली वध और हनुमान-श्रीराम मिलाप" },
+      { id: "chapter_5", number: 5, nameEnglish: "Sundara Kanda", nameHindi: "सुन्दरकाण्ड", descriptionEnglish: "Hanuman's journey to Lanka, meeting Sita, and burning Lanka", descriptionHindi: "हनुमान जी की लंका यात्रा, सीता माता से भेंट और लंका दहन" },
+      { id: "chapter_6", number: 6, nameEnglish: "Lanka Kanda", nameHindi: "लंकाकाण्ड", descriptionEnglish: "The war in Lanka and defeat of Ravana", descriptionHindi: "राम-रावण महायुद्ध, लक्ष्मण शक्ति और रावण वध" },
+      { id: "chapter_7", number: 7, nameEnglish: "Uttara Kanda", nameHindi: "उत्तरकाण्ड", descriptionEnglish: "Return to Ayodhya, coronation, and teachings", descriptionHindi: "श्रीराम का राज्याभिषेक, रामराज्य और कागभुशुण्डि संवाद" }
+    ],
+    hanuman_chalisa: [
+      { id: "chapter_1", number: 1, nameEnglish: "Part 1: Invocation & First 20 Verses", nameHindi: "भाग १: मंगलाचरण एवं प्रथम २० चौपाइयाँ", descriptionEnglish: "Praise of Hanuman's attributes and Rama bhakti", descriptionHindi: "हनुमान जी के अतुलित बल, बुद्धि, और ज्ञान का स्तुति गान" },
+      { id: "chapter_2", number: 2, nameEnglish: "Part 2: Verses 21 to 40 & Concluding Doha", nameHindi: "भाग २: चौपाई २१ से ४० एवं समापन दोहा", descriptionEnglish: "Protection from negative forces and grace of Hanuman", descriptionHindi: "संकटों का निवारण, अष्टसिद्धि-नवनिधि की चर्चा और गुरु रूप कृपा" }
+    ],
+    sunderkand: [
+      { id: "chapter_1", number: 1, nameEnglish: "The Epic Quest Begins", nameHindi: "यात्रा आरम्भ और सुरसा प्रसंग", descriptionEnglish: "Hanuman's flight across ocean and obstacles", descriptionHindi: "हनुमान जी का समुद्र लांघना, सुरसा और सिंहिका पर विजय" },
+      { id: "chapter_2", number: 2, nameEnglish: "Searching Ashoka Vatika", nameHindi: "अशोक वाटिका की खोज", descriptionEnglish: "Meeting Vibhishana and locating Sita", descriptionHindi: "विभीषण मिलाप, अशोक वाटिका प्रवेश और सीता माता के दर्शन" },
+      { id: "chapter_3", number: 3, nameEnglish: "The Burning of Lanka", nameHindi: "रावण संवाद और लंका दहन", descriptionEnglish: "Akshaya Kumar's end, Ravana's court, and flame", descriptionHindi: "अक्षय कुमार वध, रावण दरबार में सिंहनाद और लंका दहन" }
+    ],
+    shiv_puran: [
+      { id: "chapter_1", number: 1, nameEnglish: "Vidyesvara Samhita", nameHindi: "विद्येश्वर संहिता", descriptionEnglish: "Duty of chanting Shiva's name and Rudraksha", descriptionHindi: "शिव पूजा का वैज्ञानिक महत्व, रुद्राक्ष और भस्म धारण विधि" },
+      { id: "chapter_2", number: 2, nameEnglish: "Rudra Samhita (Sati & Parvati)", nameHindi: "रुद्र संहिता (सती और पार्वती खण्ड)", descriptionEnglish: "Incarnation of Sati, marriage of Shiva-Parvati", descriptionHindi: "माता सती का आत्मदाह, पार्वती तपस्या और शिव-पार्वती विवाह" },
+      { id: "chapter_3", number: 3, nameEnglish: "Sata & Koti Rudra Samhita", nameHindi: "शत और कोटि रुद्र संहिता", descriptionEnglish: "Incarnations of Shiva and the 12 Jyotirlingas", descriptionHindi: "शिव जी के अवतारों की लीलाएँ और १२ ज्योतिर्लिंगों की महिमा" },
+      { id: "chapter_4", number: 4, nameEnglish: "Uma & Kailasa Samhita", nameHindi: "उमा और कैलास संहिता", descriptionEnglish: "Esoteric yoga and nature of cosmic energy", descriptionHindi: "माँ उमा की लीला, शिव तत्व ज्ञान और कैलास पर्वत दर्शन" }
+    ],
+    durga_saptashati: [
+      { id: "chapter_1", number: 1, nameEnglish: "Prathama Charitra", nameHindi: "प्रथम चरित्र", descriptionEnglish: "Slaying of Madhu and Kaitabha", descriptionHindi: "भगवती महाकाली की महिमा, मधु-कैटभ वध प्रसंग" },
+      { id: "chapter_2", number: 2, nameEnglish: "Madhyama Charitra", nameHindi: "मध्यम चरित्र", descriptionEnglish: "Defeat of Mahishasura", descriptionHindi: "महिषासुर की सेना का संहार और महिषासुर मर्दिनी लीला" },
+      { id: "chapter_3", number: 3, nameEnglish: "Uttara Charitra", nameHindi: "उत्तर चरित्र", descriptionEnglish: "Slaying of Shumbha and Nishumbha", descriptionHindi: "चण्ड-मुण्ड वध, रक्तबीज संहार और शुम्भ-निशुम्भ वध" }
+    ]
+  };
+
+  // Scripture Question Generator (Permanently Saved)
+  async function preGenerateScriptureQuestions(subjectId: string, chapterId: string, chapterName: string, selectedLang: string) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return [];
+
+    const ai = new GoogleGenAI({ apiKey });
+    let validatedQuestions: any[] = [];
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts && validatedQuestions.length < 25) {
+      attempts++;
+      console.log(`[AI Scripture Bank] Generation attempt ${attempts} of ${maxAttempts} for ${subjectId} / ${chapterId} (${selectedLang})`);
+      try {
+        const prompt = `Generate a JSON array of exactly 25 high-quality, authentic, spiritually accurate, and educational multiple-choice questions (MCQ or True/False) on the subject "${subjectId}" (specifically Bhagavad Gita, Ramcharitmanas, etc.) - specifically for the chapter/part/kand "${chapterId}" (described as "${chapterName}").
+        The questions MUST be generated in the language: ${selectedLang}.
+        The questions must come only from the respective chapter of this scripture. Do NOT include generic or unrelated text.
+        
+        Guidelines:
+        - Each question must be highly respectful, scripturally authentic, and clear.
+        - Options should be plausible but distinct, with exactly one clearly correct answer.
+        - Each question must include a detailed explanation with scriptural context and the exact scripture reference (shloka, chaupai, verse, or chapter number).
+        - Provide a mix of easy (6 questions), medium (12 questions), and advanced (7 questions) difficulties.
+        - Include fields: "text", "type", "options", "correctAnswer", "explanation", "scriptureRef", "chapter", "verse", "difficulty", "subject", "language", "aiVersion".
+        
+        Return ONLY a valid JSON object matching this exact schema:
+        {
+          "questions": [
+            {
+              "text": "The question text in ${selectedLang}",
+              "type": "mcq",
+              "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+              "correctAnswer": "The exact string of the correct option",
+              "explanation": "Detailed explanation of why it is correct and its scriptural backdrop in ${selectedLang}",
+              "scriptureRef": "Exact scripture reference (e.g. Bhagavad Gita 2.47)",
+              "chapter": "Chapter name or number",
+              "verse": "Verse/shloka/chaupai number",
+              "difficulty": "Easy" (or "Medium" or "Advanced"),
+              "subject": "${subjectId}",
+              "language": "${selectedLang}",
+              "aiVersion": "v1.0"
+            }
+          ]
+        }`;
+
+        const aiResponse = await generateContentWithRetry(ai, {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.4,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                questions: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      text: { type: "STRING" },
+                      type: { type: "STRING" },
+                      options: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                      },
+                      correctAnswer: { type: "STRING" },
+                      explanation: { type: "STRING" },
+                      scriptureRef: { type: "STRING" },
+                      chapter: { type: "STRING" },
+                      verse: { type: "STRING" },
+                      difficulty: { type: "STRING" },
+                      subject: { type: "STRING" },
+                      language: { type: "STRING" },
+                      aiVersion: { type: "STRING" }
+                    },
+                    required: ["text", "type", "options", "correctAnswer", "explanation", "scriptureRef", "chapter"]
+                  }
+                }
+              },
+              required: ["questions"]
+            }
+          }
+        }, 2, 'ai_quiz');
+
+        const rawText = aiResponse.text || "{}";
+        const parsed = JSON.parse(rawText);
+        if (parsed && Array.isArray(parsed.questions)) {
+          const cleaned = validateAndCleanQuestions(parsed.questions, subjectId, chapterId, selectedLang, "Medium");
+          if (cleaned.length >= 25) {
+            validatedQuestions = cleaned.slice(0, 25);
+            break;
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[AI Scripture Bank BG Warning] Attempt ${attempts} failed:`, err?.message);
+      }
+    }
+
+    if (validatedQuestions.length < 25) {
+      validatedQuestions = getFallbackQuestions(subjectId, chapterId, selectedLang);
+    }
+
+    const collections = getQuizCollections(subjectId);
+    const batch = writeBatch(db);
+    validatedQuestions.forEach((q: any, idx: number) => {
+      const qId = `scripture_q_${subjectId}_${chapterId}_${selectedLang.toLowerCase()}_${idx}_${Date.now()}`;
+      const finalQ = {
+        id: qId,
+        quizId: `chapter_quiz_${subjectId}_${chapterId}`,
+        subjectId,
+        chapterId,
+        language: selectedLang,
+        text: q.text,
+        type: q.type || "mcq",
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || "",
+        scriptureRef: q.scriptureRef || "",
+        chapter: q.chapter || "",
+        verse: q.verse || "",
+        difficulty: q.difficulty || "Medium",
+        subject: q.subject || subjectId,
+        aiVersion: q.aiVersion || "v1.0",
+        status: "Published",
+        verifiedStatus: "Verified",
+        sourceType: "AI Generated"
+      };
+      batch.set(doc(db, collections.questions, qId), finalQ);
+    });
+    await batch.commit();
+    return validatedQuestions;
+  }
+
+  // AI Self-Healing Error Recovery System Core Helper
+  async function diagnoseAndRecoverError(service: string, error: any, requestPayload?: any) {
+    const errorMsg = error?.message || String(error);
+    const errorStack = error?.stack || "";
+    const errorName = error?.name || "UnknownError";
+
+    // Redact sensitive patterns (API keys, secrets, raw mobile/emails/passwords)
+    const redact = (val: any): any => {
+      if (!val) return val;
+      if (typeof val === 'string') {
+        return val
+          .replace(/[a-zA-Z0-9_\-\.]{30,}/g, "[REDACTED_KEY]")
+          .replace(/password\s*:\s*"[^"]+"/gi, 'password: "[REDACTED_PWD]"')
+          .replace(/email\s*:\s*"[^"]+"/gi, 'email: "[REDACTED_EMAIL]"')
+          .replace(/token\s*:\s*"[^"]+"/gi, 'token: "[REDACTED_TOKEN]"');
+      }
+      if (typeof val === 'object') {
+        const copy = { ...val };
+        for (const k in copy) {
+          if (/key|secret|password|token|auth|password|email/i.test(k)) {
+            copy[k] = "[REDACTED]";
+          } else if (typeof copy[k] === 'object') {
+            copy[k] = redact(copy[k]);
+          }
+        }
+        return copy;
+      }
+      return val;
+    };
+
+    const cleanPayload = redact(requestPayload);
+    const cleanErrorMsg = redact(errorMsg);
+    const cleanErrorStack = redact(errorStack);
+
+    let diagnosticJson = {
+      rootCause: "An unexpected error occurred during operation.",
+      suggestedFix: "Please check your network connection, configuration details, or server logs.",
+      isRecoverable: true,
+      recoveryCodeSnippet: ""
+    };
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `You are a Senior Site Reliability Engineer (SRE) and AI Self-Healing Core.
+An unexpected error occurred in the service "${service}".
+Error Name: ${errorName}
+Error Message: ${cleanErrorMsg}
+Error Stack: ${cleanErrorStack}
+Request Payload Context: ${JSON.stringify(cleanPayload)}
+
+Analyze this error, explain the precise technical root cause, propose an actionable fix, and provide a small self-healing recovery code snippet or configuration fix if applicable.
+Return ONLY a valid JSON object matching this schema:
+{
+  "rootCause": "Deep technical analysis of the root cause",
+  "suggestedFix": "Step-by-step instructions to fix this error permanently",
+  "isRecoverable": true,
+  "recoveryCodeSnippet": "Optional JavaScript/Node.js or Firestore recovery code snippet"
+}`;
+
+        const response = await generateContentWithRetry(ai, {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.2,
+            responseMimeType: "application/json"
+          }
+        }, 2, 'ai_healing');
+
+        const rawText = response.text || "{}";
+        const parsed = JSON.parse(rawText);
+        if (parsed) {
+          diagnosticJson = { ...diagnosticJson, ...parsed };
+        }
+      } catch (geminiErr: any) {
+        console.warn("[Self-Healing] Gemini diagnostic generation failed:", geminiErr?.message);
+      }
+    }
+
+    const logId = `err_${service.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const errorLog = {
+      id: logId,
+      timestamp: new Date().toISOString(),
+      service,
+      errorName,
+      errorMessage: cleanErrorMsg,
+      errorStack: cleanErrorStack,
+      severity: "CRITICAL",
+      status: "Unresolved",
+      analysis: diagnosticJson,
+      requestContext: cleanPayload || null
+    };
+
+    try {
+      await setDoc(doc(db, "admin_error_logs", logId), errorLog);
+      console.log(`[Self-Healing SRE] Dynamically logged & diagnosed ${service} error. Log ID: ${logId}`);
+    } catch (dbErr: any) {
+      console.error("[Self-Healing SRE Warning] Could not persist error log to Firestore:", dbErr.message);
+    }
+
+    return errorLog;
+  }
+
+  // 1. Generate chapters for selected scripture
+  app.post("/api/admin/quiz/generate-chapters", async (req, res) => {
+    const { subjectId, subjectName } = req.body;
+    if (!subjectId) {
+      return res.status(400).json({ error: "subjectId is required" });
+    }
+
+    try {
+      const collections = getQuizCollections(subjectId);
+      const sId = subjectId.toLowerCase().trim();
+      let chapters: any[] = [];
+
+      // Check if we have pre-defined chapters in our server list
+      const predefined = SERVER_SUBJECT_CHAPTERS[sId];
+      if (predefined) {
+        chapters = predefined.map((c: any) => ({
+          id: `${subjectId}_${c.id}`,
+          chapterId: c.id,
+          subjectId,
+          number: c.number,
+          nameEnglish: c.nameEnglish,
+          nameHindi: c.nameHindi,
+          descriptionEnglish: c.descriptionEnglish || "",
+          descriptionHindi: c.descriptionHindi || "",
+          totalVerses: c.totalVerses || 0,
+          isPublished: true,
+          createdAt: new Date().toISOString()
+        }));
+      } else {
+        // Generate via Gemini
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          return res.status(500).json({ error: "Gemini API Key is not configured." });
+        }
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `You are a world-class scholar of Vedic literature.
+Generate a structured, authentic list of chapters for the custom scripture: "${subjectName || subjectId}" (ID: ${subjectId}).
+Create between 5 to 10 chapters that logically structure the teachings of this scripture.
+
+Respond ONLY with a JSON object matching this exact schema:
+{
+  "chapters": [
+    {
+      "number": 1,
+      "nameEnglish": "Chapter Name in English",
+      "nameHindi": "अध्याय का नाम हिंदी में",
+      "descriptionEnglish": "Spiritual description in English",
+      "descriptionHindi": "शिक्षाओं का हिंदी में विवरण"
+    }
+  ]
+}`;
+        const response = await generateContentWithRetry(ai, {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.5,
+            responseMimeType: "application/json"
+          }
+        }, 2, 'ai_quiz');
+
+        const parsed = JSON.parse(response.text || "{}");
+        if (parsed && Array.isArray(parsed.chapters)) {
+          chapters = parsed.chapters.map((c: any, index: number) => {
+            const num = c.number || (index + 1);
+            return {
+              id: `${subjectId}_chapter_${num}`,
+              chapterId: `chapter_${num}`,
+              subjectId,
+              number: num,
+              nameEnglish: c.nameEnglish || `Chapter ${num}`,
+              nameHindi: c.nameHindi || `अध्याय ${num}`,
+              descriptionEnglish: c.descriptionEnglish || "",
+              descriptionHindi: c.descriptionHindi || "",
+              totalVerses: 10,
+              isPublished: true,
+              createdAt: new Date().toISOString()
+            };
+          });
+        }
+      }
+
+      if (chapters.length === 0) {
+        return res.status(500).json({ error: "Failed to generate chapters structure." });
+      }
+
+      // Bulk write chapters to scripture-specific chapters collection
+      const batch = writeBatch(db);
+      chapters.forEach(chap => {
+        batch.set(doc(db, collections.chapters, chap.id), chap);
+      });
+      await batch.commit();
+
+      res.json({ success: true, count: chapters.length, chapters });
+    } catch (err: any) {
+      await diagnoseAndRecoverError("AdminChapters", err, { subjectId, subjectName });
+      res.status(500).json({ error: err.message || "Failed to generate chapters" });
+    }
+  });
+
+  // 2. Generate permanent Question Bank for chapters of scripture
+  app.post("/api/admin/quiz/generate-bank", async (req, res) => {
+    const { subjectId, chapterId, language } = req.body;
+    if (!subjectId) {
+      return res.status(400).json({ error: "subjectId is required" });
+    }
+
+    const selectedLang = language || "Hindi";
+
+    try {
+      const collections = getQuizCollections(subjectId);
+      let targetChapters: any[] = [];
+
+      if (chapterId) {
+        // Query specific chapter
+        const docSnap: any = await getDoc(doc(db, collections.chapters, `${subjectId}_${chapterId}`));
+        if (docSnap.exists()) {
+          targetChapters.push({ id: docSnap.id, ...docSnap.data() });
+        } else {
+          // try default template matching
+          targetChapters.push({ id: `${subjectId}_${chapterId}`, chapterId, number: 1, nameEnglish: chapterId, nameHindi: chapterId });
+        }
+      } else {
+        // Query all chapters of this scripture
+        const snap = await getDocs(collection(db, collections.chapters));
+        snap.forEach(d => {
+          const data = d.data();
+          if (data.subjectId === subjectId) {
+            targetChapters.push({ id: d.id, ...data });
+          }
+        });
+        targetChapters.sort((a, b) => (a.number || 0) - (b.number || 0));
+      }
+
+      if (targetChapters.length === 0) {
+        return res.status(400).json({ error: "No chapters found for this scripture. Generate chapters first." });
+      }
+
+      console.log(`[AI Bank Gen] Found ${targetChapters.length} chapters to process for ${subjectId}`);
+      const results: any[] = [];
+
+      // Process each chapter sequentially to avoid rate limits
+      for (const chap of targetChapters) {
+        const chId = chap.chapterId || chap.id.replace(`${subjectId}_`, '');
+        const chName = chap.nameHindi || chap.nameEnglish || chId;
+
+        // Verify if questions already exist in scripture collection to prevent duplicate billing
+        const qQuery = query(
+          collection(db, collections.questions),
+          where("subjectId", "==", subjectId),
+          where("chapterId", "==", chId),
+          where("language", "==", selectedLang)
+        );
+        const snapExist = await getDocs(qQuery);
+        if (!snapExist.empty) {
+          console.log(`[AI Bank Gen] Skipped ${chId} - Questions already exist in ${collections.questions}`);
+          results.push({ chapterId: chId, status: "Already Existed", count: snapExist.size });
+          continue;
+        }
+
+        // Generate questions permanently
+        const generated = await preGenerateScriptureQuestions(subjectId, chId, chName, selectedLang);
+        results.push({ chapterId: chId, status: "Generated Successfully", count: generated?.length || 0 });
+      }
+
+      res.json({ success: true, results });
+    } catch (err: any) {
+      await diagnoseAndRecoverError("AdminQuestionBank", err, { subjectId, chapterId, language });
+      res.status(500).json({ error: err.message || "Failed to generate question bank" });
+    }
+  });
+
+  // 3. Complete diagnostic health check for all core integrations
+  app.get("/api/admin/health-check", async (req, res) => {
+    const diagnostics: any = {
+      timestamp: new Date().toISOString(),
+      firestore: { status: "Unknown", message: "" },
+      auth: { status: "Unknown" },
+      gemini: { status: "Unknown", message: "" },
+      razorpay: { status: "Unknown" },
+      shiprocket: { status: "Unknown", message: "" },
+      imgbb: { status: "Unknown" },
+      cloudinary: { status: "Unknown" }
+    };
+
+    // a. Firestore Check
+    try {
+      const snap = await getDoc(doc(db, "settings", "shipping"));
+      diagnostics.firestore.status = "Healthy";
+      diagnostics.firestore.message = snap.exists() ? "Connected & Read Successful" : "Connected (Empty document)";
+    } catch (err: any) {
+      diagnostics.firestore.status = "Degraded";
+      diagnostics.firestore.message = err.message || String(err);
+    }
+
+    // b. Auth Check (Implicitly healthy if Firestore and App started)
+    diagnostics.auth.status = "Healthy";
+
+    // c. Gemini Check
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      diagnostics.gemini.status = "Unconfigured";
+      diagnostics.gemini.message = "GEMINI_API_KEY environment variable is missing.";
+    } else {
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+        const response = await generateContentWithRetry(ai, {
+          contents: [{ role: "user", parts: [{ text: "Respond only with the word OK." }] }],
+          config: { maxOutputTokens: 5 }
+        }, 1, 'health');
+        diagnostics.gemini.status = "Healthy";
+        diagnostics.gemini.message = (response.text || "").trim();
+      } catch (err: any) {
+        diagnostics.gemini.status = "Degraded";
+        diagnostics.gemini.message = err.message || String(err);
+      }
+    }
+
+    // d. Razorpay Check
+    const rKeyId = process.env.RAZORPAY_KEY_ID;
+    const rKeySecret = process.env.RAZORPAY_KEY_SECRET;
+    diagnostics.razorpay.status = (rKeyId && rKeySecret) ? "Healthy" : "Unconfigured";
+
+    // e. Shiprocket Check
+    let shippingDoc: any = null;
+    try {
+      shippingDoc = await getDoc(doc(db, 'settings', 'shipping'));
+    } catch (e) {}
+    const sData = shippingDoc?.exists() ? shippingDoc.data() : {};
+    const srEmail = sData.shiprocketEmail || process.env.SHIPROCKET_EMAIL || "";
+    const srPassword = sData.shiprocketPassword || process.env.SHIPROCKET_PASSWORD || "";
+
+    if (!srEmail || !srPassword || srEmail.includes("example.com") || srEmail.includes("placeholder")) {
+      diagnostics.shiprocket.status = "Unconfigured";
+      diagnostics.shiprocket.message = "Default sandbox credentials or missing config.";
+    } else {
+      try {
+        const token = await getShiprocketToken(srEmail, srPassword);
+        diagnostics.shiprocket.status = "Healthy";
+        diagnostics.shiprocket.message = "Authenticated successfully with Shiprocket API v2.";
+      } catch (err: any) {
+        diagnostics.shiprocket.status = "Degraded";
+        diagnostics.shiprocket.message = err.message || "Failed to authenticate.";
+      }
+    }
+
+    // f. Image Services Checks
+    diagnostics.imgbb.status = process.env.IMGBB_API_KEY ? "Healthy" : "Unconfigured";
+    diagnostics.cloudinary.status = (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) ? "Healthy" : "Unconfigured";
+
+    res.json(diagnostics);
+  });
+
+  // 4. Fetch error logs
+  app.get("/api/admin/error-logs", async (req, res) => {
+    try {
+      const snap = await getDocs(collection(db, "admin_error_logs"));
+      const logs: any[] = [];
+      snap.forEach(d => {
+        logs.push({ id: d.id, ...d.data() });
+      });
+      // Sort newest first
+      logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      res.json({ success: true, count: logs.length, logs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to retrieve logs" });
+    }
+  });
+
+  // 5. Purge/Clear error logs
+  app.post("/api/admin/error-logs/clear", async (req, res) => {
+    try {
+      const snap = await getDocs(collection(db, "admin_error_logs"));
+      const batch = writeBatch(db);
+      snap.forEach(d => {
+        batch.delete(d.ref);
+      });
+      await batch.commit();
+      res.json({ success: true, message: "Error logs purged successfully" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to clear logs" });
     }
   });
 

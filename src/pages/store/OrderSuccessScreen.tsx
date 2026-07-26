@@ -10,10 +10,12 @@ export const OrderSuccessScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { settings } = useAppSettings();
-  const state = location.state as { orderId?: string; paymentId?: string };
+  const state = location.state as { orderId?: string; humanOrderId?: string; paymentId?: string };
 
   const orderId =
-    state?.orderId || `HP${Math.floor(100000 + Math.random() * 900000)}`;
+    state?.humanOrderId ||
+    state?.orderId ||
+    `HP${Math.floor(100000 + Math.random() * 900000)}`;
   const paymentId =
     state?.paymentId ||
     `pay_${Math.floor(10000000 + Math.random() * 90000000)}`;
@@ -88,7 +90,7 @@ export const OrderSuccessScreen = () => {
             Order Number
           </span>
           <span className="text-sm font-bold text-brown-dark dark:text-white">
-            {orderId.slice(0, 10).toUpperCase()}
+            {orderId.toUpperCase()}
           </span>
         </div>
         <div className="flex justify-between border-b border-orange-50 dark:border-slate-700 pb-3">
