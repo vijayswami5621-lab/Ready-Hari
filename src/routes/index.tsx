@@ -91,6 +91,14 @@ import { ContactScreen } from '../pages/info/ContactScreen';
 import { RefundPolicyScreen } from '../pages/info/RefundPolicyScreen';
 import { ShippingPolicyScreen } from '../pages/info/ShippingPolicyScreen';
 import { GalleryScreen } from '../pages/info/GalleryScreen';
+import { FAQScreen } from '../pages/info/FAQScreen';
+import { CommunityGuidelinesScreen } from '../pages/info/CommunityGuidelinesScreen';
+import { CopyrightPolicyScreen } from '../pages/info/CopyrightPolicyScreen';
+import { DisclaimerScreen } from '../pages/info/DisclaimerScreen';
+import { DataSafetyScreen } from '../pages/info/DataSafetyScreen';
+import { CookiePolicyScreen } from '../pages/info/CookiePolicyScreen';
+import { UserAgreementScreen } from '../pages/info/UserAgreementScreen';
+import { AccountDeletionScreen } from '../pages/info/AccountDeletionScreen';
 import { CheckoutScreen } from '../pages/store/CheckoutScreen';
 import { OrderSuccessScreen } from '../pages/store/OrderSuccessScreen';
 import { TrackOrderScreen } from '../pages/store/TrackOrderScreen';
@@ -105,6 +113,7 @@ import { PanchangScreen } from '../pages/misc/PanchangScreen';
 import { EventsScreen } from '../pages/misc/EventsScreen';
 import { BlogScreen } from '../pages/misc/BlogScreen';
 import { QuotesScreen } from '../pages/info/QuotesScreen';
+import { PublicQuoteScreen } from '../pages/info/PublicQuoteScreen';
 import { NotFoundScreen } from '../pages/misc/NotFoundScreen';
 import { ContentResolver } from '../pages/misc/ContentResolver';
 
@@ -205,20 +214,30 @@ const router = createBrowserRouter([
   { path: '/profile/settings', element: <ProtectedRoute><SettingsScreen /></ProtectedRoute> },
   { path: '/profile/edit', element: <ProtectedRoute><EditProfileScreen /></ProtectedRoute> },
   { path: '/profile/notifications', element: <ProtectedRoute><NotificationsScreen /></ProtectedRoute> },
-  { path: '/profile/about', element: <ProtectedRoute><AboutScreen /></ProtectedRoute> },
+  { path: '/profile/about', element: <AboutScreen /> },
   { path: '/profile/orders', element: <ProtectedRoute><OrdersScreen /></ProtectedRoute> },
   { path: '/profile/downloads', element: <ProtectedRoute><DownloadsScreen /></ProtectedRoute> },
   { path: '/profile/history', element: <ProtectedRoute><HistoryScreen /></ProtectedRoute> },
   { path: '/profile/bookmarks', element: <ProtectedRoute><BookmarksScreen /></ProtectedRoute> },
   { path: '/profile/wishlist', element: <ProtectedRoute><WishlistScreen /></ProtectedRoute> },
-  { path: '/profile/privacy', element: <ProtectedRoute><PrivacyPolicyScreen /></ProtectedRoute> },
-  { path: '/info/refunds', element: <ProtectedRoute><RefundPolicyScreen /></ProtectedRoute> },
-  { path: '/info/shipping', element: <ProtectedRoute><ShippingPolicyScreen /></ProtectedRoute> },
-  { path: '/profile/contact', element: <ProtectedRoute><ContactScreen /></ProtectedRoute> },
-  { path: '/info/founder', element: <ProtectedRoute><FounderScreen /></ProtectedRoute> },
-  { path: '/info/mission', element: <ProtectedRoute><MissionScreen /></ProtectedRoute> },
-  { path: '/info/terms', element: <ProtectedRoute><TermsScreen /></ProtectedRoute> },
-  { path: '/info/gallery', element: <ProtectedRoute><GalleryScreen /></ProtectedRoute> },
+  { path: '/profile/privacy', element: <PrivacyPolicyScreen /> },
+  { path: '/info/refunds', element: <RefundPolicyScreen /> },
+  { path: '/info/shipping', element: <ShippingPolicyScreen /> },
+  { path: '/profile/contact', element: <ContactScreen /> },
+  { path: '/info/founder', element: <FounderScreen /> },
+  { path: '/info/mission', element: <MissionScreen /> },
+  { path: '/info/terms', element: <TermsScreen /> },
+  { path: '/info/gallery', element: <GalleryScreen /> },
+
+  // Public Compliance & Support Routes
+  { path: '/info/faq', element: <FAQScreen /> },
+  { path: '/info/community-guidelines', element: <CommunityGuidelinesScreen /> },
+  { path: '/info/copyright', element: <CopyrightPolicyScreen /> },
+  { path: '/info/disclaimer', element: <DisclaimerScreen /> },
+  { path: '/info/data-safety', element: <DataSafetyScreen /> },
+  { path: '/info/cookie-policy', element: <CookiePolicyScreen /> },
+  { path: '/info/user-agreement', element: <UserAgreementScreen /> },
+  { path: '/info/account-deletion', element: <AccountDeletionScreen /> },
   { path: '/adhyayan/category/:id', element: <ProtectedRoute><CategoryDetailsScreen /></ProtectedRoute> },
   { path: '/adhyayan/video/:id', element: <ProtectedRoute><VideoPlayerScreen /></ProtectedRoute> },
   { path: '/adhyayan/pdf/:id', element: <ProtectedRoute><PDFViewerScreen /></ProtectedRoute> },
@@ -248,7 +267,7 @@ const router = createBrowserRouter([
   { path: '/reel/:id', element: <ProtectedRoute><VideoPlayerScreen /></ProtectedRoute> },
   { path: '/category/:id', element: <ProtectedRoute><CategoryDetailsScreen /></ProtectedRoute> },
   { path: '/event/:id', element: <ProtectedRoute><EventsScreen /></ProtectedRoute> },
-  { path: '/quote/:id', element: <ProtectedRoute><QuotesScreen /></ProtectedRoute> },
+  { path: '/quote/:id', element: <PublicQuoteScreen /> },
 
   { path: '/open/:id', element: <ContentResolver /> },
   { path: '*', element: <NotFoundScreen /> },

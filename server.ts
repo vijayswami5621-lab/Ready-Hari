@@ -4815,6 +4815,66 @@ Return a valid JSON array.`;
     res.json({ ok: true });
   });
 
+  // Dynamic SEO handler for Shared Quotes
+  app.get('/quote/:id', async (req, res, next) => {
+    try {
+      const quoteId = req.params.id;
+      const quoteDocRef = doc(db, 'quotes', quoteId);
+      const quoteSnap = await getDoc(quoteDocRef);
+      
+      let title = "Divine Scripture Quote | Hari Pathshala";
+      let description = "Read and share sacred scripture quotes and timeless spiritual wisdom from Hari Pathshala.";
+      let imageUrl = "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=630&q=80";
+      
+      if (quoteSnap.exists()) {
+        const quoteData = quoteSnap.data();
+        const quoteText = quoteData.text || "";
+        const source = quoteData.source || "Sacred Scripture";
+        const category = quoteData.category || "Wisdom";
+        
+        title = `"${quoteText.substring(0, 60)}${quoteText.length > 60 ? '...' : ''}" - ${source}`;
+        description = `Read this beautiful ${category} quote from ${source} on Hari Pathshala: "${quoteText}"`;
+        if (quoteData.image) {
+          imageUrl = quoteData.image;
+        }
+      }
+      
+      const isProduction = process.env.NODE_ENV === 'production';
+      const indexPath = path.join(process.cwd(), isProduction ? 'dist' : '.', 'index.html');
+      
+      if (fs.existsSync(indexPath)) {
+        let html = fs.readFileSync(indexPath, 'utf8');
+        
+        const host = req.get('host') || 'haripathshala.online';
+        const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+        const canonicalUrl = `${protocol}://${host}/quote/${quoteId}`;
+        
+        const seoTags = `
+          <title>${title}</title>
+          <meta name="description" content="${description}">
+          <meta property="og:title" content="${title}">
+          <meta property="og:description" content="${description}">
+          <meta property="og:image" content="${imageUrl}">
+          <meta property="og:url" content="${canonicalUrl}">
+          <meta property="og:type" content="article">
+          <meta name="twitter:card" content="summary_large_image">
+          <meta name="twitter:title" content="${title}">
+          <meta name="twitter:description" content="${description}">
+          <meta name="twitter:image" content="${imageUrl}">
+          <link rel="canonical" href="${canonicalUrl}">
+        `;
+        
+        html = html.replace('</head>', `${seoTags}</head>`);
+        res.send(html);
+      } else {
+        next();
+      }
+    } catch (error) {
+      console.error("[SEO Quote Handler Error] Failed to generate meta tags:", error);
+      next();
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
