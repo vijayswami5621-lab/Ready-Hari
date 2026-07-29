@@ -212,8 +212,8 @@ docCache.set("settings/payment", {
     enabled: true,
     onlinePayment: true,
     testMode: false,
-    keyId: process.env.RAZORPAY_LIVE_KEY_ID || "rzp_live_T91BWZao0CJ2Bi",
-    keySecret: process.env.RAZORPAY_LIVE_KEY_SECRET || "I7wB0ElgOZO5t5H32546b6wM"
+    keyId: process.env.RAZORPAY_LIVE_KEY_ID || "rzp_live_TIBLCjw9jrdW83",
+    keySecret: process.env.RAZORPAY_LIVE_KEY_SECRET || "6k39BFz5Vth27HFZNxR7191t"
   }
 });
 
