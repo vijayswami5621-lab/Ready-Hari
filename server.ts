@@ -212,8 +212,8 @@ docCache.set("settings/payment", {
     enabled: true,
     onlinePayment: true,
     testMode: false,
-    keyId: process.env.RAZORPAY_LIVE_KEY_ID || "rzp_live_TIBLCjw9jrdW83",
-    keySecret: process.env.RAZORPAY_LIVE_KEY_SECRET || "6k39BFz5Vth27HFZNxR7191t"
+    keyId: process.env.RAZORPAY_LIVE_KEY_ID || process.env.RAZORPAY_KEY_ID || "",
+    keySecret: process.env.RAZORPAY_LIVE_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || ""
   }
 });
 
@@ -222,8 +222,8 @@ docCache.set("settings/shipping", {
   timestamp: Date.now(),
   data: {
     shiprocketEnabled: true,
-    shiprocketEmail: process.env.SHIPROCKET_EMAIL || "swamiajay9783@gmail.com",
-    shiprocketPassword: process.env.SHIPROCKET_PASSWORD || "$p0FvTP%8fa6PItUtHcKCtkm&JW2wbL%",
+    shiprocketEmail: process.env.SHIPROCKET_EMAIL || "",
+    shiprocketPassword: process.env.SHIPROCKET_PASSWORD || "",
     pickupLocation: "Primary",
     packageLength: 10,
     packageBreadth: 10,
@@ -329,7 +329,7 @@ const apiServices: Record<string, APIServiceConfig> = {
     id: 'panchang',
     name: 'Vedic Panchang Service',
     enabled: true,
-    keys: [{ key: process.env.FREEASTROAPI_KEY || "11ccbe1efa55e242577b191f7cabee889763db18d621f2e1018c458df2de1472", status: 'active', errorCount: 0 }],
+    keys: [{ key: process.env.FREE_ASTRO_API_KEY || process.env.FREEASTROAPI_KEY || "abc6bcfd78f7472de7e3cdeeb4e8d0ed90cde5ab05e4ae95448b502989db9c15", status: 'active', errorCount: 0 }],
     currentKeyIndex: 0,
     dailyLimit: 500,
     callsCount: 0,
@@ -339,7 +339,7 @@ const apiServices: Record<string, APIServiceConfig> = {
     id: 'payment',
     name: 'Razorpay Gateway',
     enabled: true,
-    keys: [{ key: process.env.RAZORPAY_LIVE_KEY_ID || "rzp_live_T91BWZao0CJ2Bi", status: 'active', errorCount: 0 }],
+    keys: [{ key: process.env.RAZORPAY_LIVE_KEY_ID || process.env.RAZORPAY_KEY_ID || "", status: 'active', errorCount: 0 }],
     currentKeyIndex: 0,
     dailyLimit: 10000,
     callsCount: 0,
@@ -349,7 +349,7 @@ const apiServices: Record<string, APIServiceConfig> = {
     id: 'shipping',
     name: 'Shiprocket Logistics',
     enabled: true,
-    keys: [{ key: process.env.SHIPROCKET_EMAIL || "swamiajay9783@gmail.com", status: 'active', errorCount: 0 }],
+    keys: [{ key: process.env.SHIPROCKET_EMAIL || "", status: 'active', errorCount: 0 }],
     currentKeyIndex: 0,
     dailyLimit: 2000,
     callsCount: 0,
@@ -357,39 +357,68 @@ const apiServices: Record<string, APIServiceConfig> = {
   }
 };
 
-function initServiceKeys() {
-  const defaultKey = process.env.GEMINI_API_KEY || "AIzaSy_fake_default_key_to_prevent_crash_hp";
+function isKeyValid(k?: string): boolean {
+  if (!k) return false;
+  const trimmed = k.trim();
+  if (!trimmed || trimmed === "undefined" || trimmed === "null") return false;
+  if (trimmed.includes("your_gemini") || trimmed.includes("AIzaSy_fake") || trimmed === "AQ_placeholder" || trimmed.includes("your_key")) return false;
+  return trimmed.length > 5;
+}
 
-  // chat keys
+function getValidGeminiApiKey(serviceId?: string): string | null {
+  if (serviceId && apiServices[serviceId]) {
+    const service = apiServices[serviceId];
+    const validActiveKeys = service.keys.filter(k => k.status === 'active' && isKeyValid(k.key));
+    if (validActiveKeys.length > 0) {
+      const keyInfo = validActiveKeys[service.currentKeyIndex % validActiveKeys.length];
+      keyInfo.lastUsed = Date.now();
+      return keyInfo.key;
+    }
+  }
+
+  const candidateKeys = [
+    process.env.GEMINI_API_KEY_CHAT,
+    process.env.GEMINI_API_KEY_QUIZ,
+    process.env.GEMINI_API_KEY_QUOTE,
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_SECONDARY,
+    process.env.VITE_GEMINI_API_KEY
+  ];
+
+  for (const k of candidateKeys) {
+    if (isKeyValid(k)) return k!.trim();
+  }
+  return null;
+}
+
+function initServiceKeys() {
   const chatKeys = [
     process.env.GEMINI_API_KEY_CHAT,
     process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_SECONDARY
-  ].filter((k): k is string => !!k && k.trim() !== "");
-  apiServices.ai_chat.keys = (chatKeys.length ? chatKeys : [defaultKey]).map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  ].filter(isKeyValid) as string[];
 
-  // quiz keys
   const quizKeys = [
     process.env.GEMINI_API_KEY_QUIZ,
     process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_SECONDARY
-  ].filter((k): k is string => !!k && k.trim() !== "");
-  apiServices.ai_quiz.keys = (quizKeys.length ? quizKeys : [defaultKey]).map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  ].filter(isKeyValid) as string[];
 
-  // quote keys
   const quoteKeys = [
     process.env.GEMINI_API_KEY_QUOTE,
     process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_SECONDARY
-  ].filter((k): k is string => !!k && k.trim() !== "");
-  apiServices.ai_quote.keys = (quoteKeys.length ? quoteKeys : [defaultKey]).map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  ].filter(isKeyValid) as string[];
 
-  // scripture keys
   const scriptureKeys = [
     process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_SECONDARY
-  ].filter((k): k is string => !!k && k.trim() !== "");
-  apiServices.ai_scripture.keys = (scriptureKeys.length ? scriptureKeys : [defaultKey]).map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  ].filter(isKeyValid) as string[];
+
+  if (apiServices.ai_chat) apiServices.ai_chat.keys = chatKeys.map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  if (apiServices.ai_quiz) apiServices.ai_quiz.keys = quizKeys.map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  if (apiServices.ai_quote) apiServices.ai_quote.keys = quoteKeys.map(k => ({ key: k, status: 'active', errorCount: 0 }));
+  if (apiServices.ai_scripture) apiServices.ai_scripture.keys = scriptureKeys.map(k => ({ key: k, status: 'active', errorCount: 0 }));
 }
 initServiceKeys();
 
@@ -423,10 +452,11 @@ function getServiceApiKey(serviceId: string): string {
   if (!service) throw new Error(`Unknown service: ${serviceId}`);
   if (!service.enabled) throw new Error(`Service ${service.name} is currently disabled.`);
 
-  const keysCount = service.keys.length;
+  const validKeys = service.keys.filter(k => isKeyValid(k.key));
+  const keysCount = validKeys.length;
   for (let i = 0; i < keysCount; i++) {
     const idx = (service.currentKeyIndex + i) % keysCount;
-    const keyInfo = service.keys[idx];
+    const keyInfo = validKeys[idx];
     if (keyInfo && keyInfo.status === 'active') {
       service.currentKeyIndex = idx;
       keyInfo.lastUsed = Date.now();
@@ -435,7 +465,7 @@ function getServiceApiKey(serviceId: string): string {
   }
 
   let recoveredAny = false;
-  for (const k of service.keys) {
+  for (const k of validKeys) {
     if (k.status === 'cooldown') {
       k.status = 'active';
       k.errorCount = 0;
@@ -447,10 +477,12 @@ function getServiceApiKey(serviceId: string): string {
     return getServiceApiKey(serviceId);
   }
 
-  if (service.keys.length > 0) {
-    return service.keys[0].key;
+  const globalFallback = getValidGeminiApiKey();
+  if (globalFallback) {
+    return globalFallback;
   }
-  throw new Error(`No keys configured for service ${serviceId}`);
+
+  throw new Error(`No valid keys configured for service ${serviceId}`);
 }
 
 function reportServiceSuccess(serviceId: string, key: string, latency: number) {
@@ -475,7 +507,9 @@ function reportServiceError(serviceId: string, key: string, error: any) {
     keyInfo.errorCount++;
     if (keyInfo.errorCount >= 2) {
       keyInfo.status = 'cooldown';
-      service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
+      if (service.keys.length > 0) {
+        service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
+      }
     }
   }
 }
@@ -537,34 +571,83 @@ async function generateContentWithRetry(
     contents: any;
     config?: any;
   },
-  maxRetries = 4, // Increased from 2 to allow multi-model and multi-key rotation
+  maxRetries = 3,
   serviceId = 'ai_scripture'
 ): Promise<any> {
   let attempt = 0;
-  let delay = 300; // Faster initial retry to avoid blocking the UI
   const startTime = Date.now();
 
-  const primaryModel = params.model || "gemini-2.5-flash";
+  const primaryModel = params.model || "gemini-3.6-flash";
   const modelRotationList = [
     primaryModel,
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-3.6-flash",
+    "gemini-3.1-flash-lite"
   ];
   const uniqueModels = Array.from(new Set(modelRotationList));
   let currentModelIndex = 0;
 
   while (attempt < maxRetries) {
-    const apiKey = getServiceApiKey(serviceId);
-    const resolvedAi = new GoogleGenAI({ apiKey });
+    let apiKey = "";
+    try {
+      apiKey = getServiceApiKey(serviceId);
+    } catch (e) {
+      const fallback = getValidGeminiApiKey();
+      if (fallback) apiKey = fallback;
+    }
+
+    if (!apiKey || !isKeyValid(apiKey)) {
+      throw new Error(`[Gemini API] No valid API Key available for service ${serviceId}`);
+    }
+
     const modelToUse = uniqueModels[currentModelIndex % uniqueModels.length];
 
     try {
       console.log(`[Gemini API] Call to [Service: ${serviceId}] with model=${modelToUse} (Attempt ${attempt + 1}/${maxRetries})`);
-      const response = await resolvedAi.models.generateContent({
-        ...params,
-        model: modelToUse,
-      });
+      let response: any;
+
+      if (apiKey.startsWith("AQ.")) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent`;
+        const systemInst = params.config?.systemInstruction
+          ? (typeof params.config.systemInstruction === 'string'
+              ? { parts: [{ text: params.config.systemInstruction }] }
+              : params.config.systemInstruction)
+          : undefined;
+
+        const bodyPayload: any = {
+          contents: params.contents || [],
+        };
+        if (systemInst) bodyPayload.systemInstruction = systemInst;
+        if (params.config?.temperature !== undefined || params.config?.responseMimeType || params.config?.responseSchema) {
+          bodyPayload.generationConfig = {
+            temperature: params.config?.temperature,
+            responseMimeType: params.config?.responseMimeType,
+            responseSchema: params.config?.responseSchema
+          };
+        }
+
+        const fetchRes = await axios.post(url, bodyPayload, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          timeout: 25000
+        });
+
+        const resData = fetchRes.data;
+        const generatedText = resData.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
+        response = {
+          text: generatedText,
+          candidates: resData.candidates,
+          data: resData
+        };
+      } else {
+        const resolvedAi = new GoogleGenAI({ apiKey });
+        response = await resolvedAi.models.generateContent({
+          ...params,
+          model: modelToUse,
+        });
+      }
+
       const latency = Date.now() - startTime;
       reportServiceSuccess(serviceId, apiKey, latency);
       return response;
@@ -579,15 +662,20 @@ async function generateContentWithRetry(
         errorMsg.toLowerCase().includes("billing") ||
         errorMsg.toLowerCase().includes("exhausted");
 
+      const isAuthError =
+        errorMsg.toLowerCase().includes("401") ||
+        errorMsg.toLowerCase().includes("unauthenticated") ||
+        errorMsg.toLowerCase().includes("invalid authentication credentials") ||
+        errorMsg.toLowerCase().includes("access_token_type_unsupported");
+
       const isTransient = 
-        !isQuotaExceeded && (
+        !isQuotaExceeded && !isAuthError && (
           errorMsg.includes("503") || 
           errorMsg.includes("429") || 
           errorMsg.includes("UNAVAILABLE") || 
           errorMsg.includes("high demand")
         );
 
-      // Report service error and put the key on immediate cooldown if it's a hard quota limit
       const service = apiServices[serviceId];
       if (service) {
         service.errorsCount++;
@@ -595,16 +683,19 @@ async function generateContentWithRetry(
         addApiLog(serviceId, apiKey, 'failed', 0, errorMsg);
         const keyInfo = service.keys.find(k => k.key === apiKey);
         if (keyInfo) {
-          if (isQuotaExceeded) {
-            // Hard limit, put key on cooldown immediately to avoid retrying with this key
+          if (isQuotaExceeded || isAuthError) {
             keyInfo.status = 'cooldown';
             keyInfo.errorCount = 2;
-            service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
+            if (service.keys.length > 0) {
+              service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
+            }
           } else {
             keyInfo.errorCount++;
             if (keyInfo.errorCount >= 2) {
               keyInfo.status = 'cooldown';
-              service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
+              if (service.keys.length > 0) {
+                service.currentKeyIndex = (service.currentKeyIndex + 1) % service.keys.length;
+              }
             }
           }
         }
@@ -612,16 +703,16 @@ async function generateContentWithRetry(
 
       console.warn(`[Gemini API Warning] [Service: ${serviceId}] Attempt ${attempt} failed with error:`, errorMsg);
 
+      if (isAuthError) {
+        throw error;
+      }
+
       if ((isTransient || isQuotaExceeded) && attempt < maxRetries) {
         if (isQuotaExceeded) {
-          // Rotate model to bypass 20 RPD free tier limit
           currentModelIndex++;
           console.log(`[Gemini API Model Rotate] [Service: ${serviceId}] Quota exceeded on ${modelToUse}. Rotating model to ${uniqueModels[currentModelIndex % uniqueModels.length]}`);
-        } else {
-          console.log(`[Gemini API Retry] [Service: ${serviceId}] Retrying in ${delay}ms...`);
         }
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 1.5;
+        await new Promise(res => setTimeout(res, 300));
       } else {
         throw error;
       }
@@ -2205,16 +2296,34 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+  // Custom CORS middleware to support Capacitor mobile and other cross-origin platforms
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   app.use(express.json());
 
   // API Routes
   app.post("/api/generate-quote", async (req, res) => {
     try {
       const { topic } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = getValidGeminiApiKey("ai_quote");
       
       if (!apiKey) {
-        return res.status(500).json({ error: "Gemini API Key is not configured." });
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
       }
       
       const ai = new GoogleGenAI({ apiKey });
@@ -2263,63 +2372,35 @@ Return ONLY a valid JSON object with the following structure:
     }
   });
 
-  // Dual Cache System for AI Guru responses
-  const aiGuruMemoryCache = new Map<string, string>();
-
-  function normalizeQuery(str: string): string {
-    return (str || "").toLowerCase().replace(/[?,.!\s\u0964\u0970]/g, "").trim();
-  }
-
-  function findPartialCacheMatch(normalized: string): string | null {
-    for (const [cachedMsg, reply] of aiGuruMemoryCache.entries()) {
-      if (normalized.includes(cachedMsg) || cachedMsg.includes(normalized)) {
-        return reply;
-      }
-    }
-    return null;
-  }
-
   app.post("/api/chat", async (req, res) => {
+    const startTime = Date.now();
     try {
-      const { message, history } = req.body;
-      const normalized = normalizeQuery(message);
+      const { message, history } = req.body || {};
 
-      // 1. Check in-memory cache
-      if (aiGuruMemoryCache.has(normalized)) {
-        console.log(`[AI Guru Cache] Memory Cache HIT for: "${message}"`);
-        return res.json({ reply: aiGuruMemoryCache.get(normalized) });
+      if (!message || typeof message !== 'string' || !message.trim()) {
+        return res.status(400).json({ error: "Message content cannot be empty." });
       }
 
-      // 2. Check Firestore cache (try block to prevent Firestore errors blocking the API)
-      try {
-        const cacheSnap = await getDocs(query(collection(db, 'ai_guru_cache'), orderBy('timestamp', 'desc')));
-        for (const doc of cacheSnap.docs) {
-          const data = doc.data();
-          if (normalizeQuery(data.message) === normalized) {
-            console.log(`[AI Guru Cache] Firestore Cache HIT for: "${message}"`);
-            aiGuruMemoryCache.set(normalized, data.reply);
-            return res.json({ reply: data.reply });
-          }
-        }
-      } catch (err) {
-        console.warn("[AI Guru Cache] Firestore cache query failed, proceeding to Gemini:", err);
-      }
+      console.log(`[AI Guru Request] Prompt: "${message.substring(0, 120)}${message.length > 120 ? '...' : ''}" | History count: ${Array.isArray(history) ? history.length : 0}`);
 
-      let apiKey = "";
+      let apiKey: string | null = null;
       try {
         apiKey = getServiceApiKey("ai_chat");
       } catch (err) {
-        apiKey = process.env.GEMINI_API_KEY || "";
+        apiKey = getValidGeminiApiKey();
       }
 
-      if (!apiKey || apiKey.startsWith("AIzaSy_fake")) {
-        const partialReply = findPartialCacheMatch(normalized);
-        if (partialReply) {
-          return res.json({ reply: partialReply });
-        }
-        return res.status(500).json({ error: "Gemini API Key is not configured." });
+      if (!apiKey) {
+        console.error("[AI Guru Diagnostic Error] Missing GEMINI_API_KEY environment variable in server environment.");
+        return res.status(500).json({
+          error: "GEMINI_API_KEY environment variable is not configured in the server environment. Please set GEMINI_API_KEY in your Render environment variables or .env file."
+        });
       }
-      
+
+      const keyPrefix = apiKey ? apiKey.substring(0, 6) + "..." : "NONE";
+      console.log(`[AI Guru Auth Check] Service: ai_chat | Key Configured: true | Key Prefix: ${keyPrefix}`);
+
+      const primaryModel = "gemini-3.6-flash";
       const ai = new GoogleGenAI({ apiKey });
 
       const systemInstruction = `You are "AI Guru", the official spiritual companion for the Hari Pathshala app.
@@ -2334,17 +2415,15 @@ HARI PATHSHALA KNOWLEDGE
 If asked about Hari Pathshala (what it is, who started it, mission, joining, classes, volunteer, updates), use the official information.
 Official Website: https://haripathshala.online
 Official Instagram: @hari_pathshala
-If the user asks how to connect, mention the official website and Instagram page. Do not invent information. If they ask about the founder, refer to the official CMS/Website info or answer generally if specific details aren't provided in the prompt. 
+If the user asks how to connect, mention the official website and Instagram page. Do not invent information.
 
 INTENT DETECTION & RESPONSE STYLE
 - Be Calm, Respectful, Compassionate, Positive, Encouraging, Wise, Friendly, and Easy to understand.
 - Reply in the same language used by the user (Hindi, Hinglish, English).
-- If the user shares personal difficulties, listen respectfully, provide balanced, practical suggestions, and encourage healthy communication.
-- Maintain a conversational tone and avoid robotic, repetitive responses.
+- Maintain a conversational, authentic tone and avoid robotic or repetitive template responses.
 
 CONTENT MODERATION (STRICT)
 - Detect and refuse vulgar language, sexual content, pornographic requests, hate speech, abusive language, illegal activities, harassment, and graphic violence.
-- Do NOT repeat offensive words.
 - If inappropriate content is detected, respond politely by explaining: "Hari Pathshala AI Guru only supports respectful conversations related to spirituality and positive personal guidance."`;
 
       const contents = [];
@@ -2353,117 +2432,34 @@ CONTENT MODERATION (STRICT)
       }
       contents.push({ role: "user", parts: [{ text: message }] });
 
-      // Run with 4 retries and model rotation
+      console.log(`[AI Guru Gemini Call] Model: ${primaryModel} | Service: ai_chat | Request URL: /api/chat`);
       const response = await generateContentWithRetry(ai, {
         contents,
         config: {
           systemInstruction,
           temperature: 0.7,
         }
-      }, 4, 'ai_chat');
-      
-      const replyText = response.text;
+      }, 3, 'ai_chat');
 
-      // Update both caches
-      aiGuruMemoryCache.set(normalized, replyText);
-      try {
-        await addDoc(collection(db, 'ai_guru_cache'), {
-          message,
-          reply: replyText,
-          timestamp: serverTimestamp()
-        });
-      } catch (err) {
-        console.warn("[AI Guru Cache] Saving to Firestore cache failed:", err);
+      const replyText = response?.text;
+      if (!replyText) {
+        throw new Error("Gemini API returned an empty response text.");
       }
 
-      res.json({ reply: replyText });
+      const latency = Date.now() - startTime;
+      console.log(`[AI Guru Success] HTTP 200 OK | Latency: ${latency}ms | Response Snippet: "${replyText.substring(0, 100).replace(/\n/g, ' ')}..."`);
+
+      return res.json({ reply: replyText });
     } catch (error: any) {
-      console.error("AI Chat Error on primary 'ai_chat' service, trying backup 'ai_scripture'...", error?.message || error);
-      
-      // Retry using backup 'ai_scripture' service
-      try {
-        let backupApiKey = "";
-        try {
-          backupApiKey = getServiceApiKey("ai_scripture");
-        } catch (err) {
-          backupApiKey = process.env.GEMINI_API_KEY || "";
-        }
-        if (backupApiKey && !backupApiKey.startsWith("AIzaSy_fake")) {
-          const backupAi = new GoogleGenAI({ apiKey: backupApiKey });
-          const response = await generateContentWithRetry(backupAi, {
-            contents: [
-              ...(Array.isArray(req.body.history) ? req.body.history : []),
-              { role: "user", parts: [{ text: req.body.message }] }
-            ],
-            config: {
-              systemInstruction: `You are "AI Guru", the official spiritual companion for the Hari Pathshala app. Keep answers warm, respectful, and short.`,
-              temperature: 0.7,
-            }
-          }, 4, 'ai_scripture');
+      const statusCode = error?.status || error?.statusCode || (error?.message?.includes("401") ? 401 : error?.message?.includes("429") ? 429 : 500);
+      console.error(`[AI Guru Gemini Failure] HTTP ${statusCode} | Endpoint: /api/chat | Error Message:`, error?.message || error);
+      console.error("[AI Guru Error Stack]:", error?.stack || "No stack trace available");
 
-          if (response && response.text) {
-            console.log("[AI Guru Backup Success] Resolved chat request via backup 'ai_scripture' service.");
-            return res.json({ reply: response.text });
-          }
-        }
-      } catch (backupError: any) {
-        console.error("AI Chat Backup 'ai_scripture' service also failed:", backupError?.message || backupError);
-      }
-
-      const partialReply = findPartialCacheMatch(normalizeQuery(req.body.message || ""));
-      if (partialReply) {
-        return res.json({ reply: partialReply });
-      }
-
-      res.json({ reply: "AI Guru is temporarily unavailable. Please try again shortly. (AI गुरु वर्तमान में अस्थायी रूप से अनुपलब्ध है। कृपया कुछ समय बाद पुनः प्रयास करें।)" });
+      return res.status(statusCode).json({
+        error: error?.message || "Failed to generate AI response from Gemini API."
+      });
     }
   });
-
-  // Caching helper for greeting messages and basic queries
-  function getCachedGuruResponse(message: string): string | null {
-    const msg = (message || "").toLowerCase().trim();
-    const cleanMsg = msg.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?🙏|]/g, "").trim();
-
-    const greetings = [
-      "hello", "hi", "hey", "namaste", "pranam", "radhe radhe", "hare krishna", "pranama", "shubh prabhat", "shubh sandhya",
-      "प्रणाम", "नमस्ते", "राधे राधे", "हरे कृष्ण", "जय श्री कृष्णा", "जय सियाराम", "राम राम", "सुप्रभात"
-    ];
-
-    if (greetings.includes(cleanMsg) || greetings.some(g => cleanMsg === g)) {
-      return "राधे राधे! 🙏 मैं हरि पाठशाला का AI गुरु हूँ। मैं भगवद्गीता, रामचरितमानस, वेद, उपनिषद, और अन्य आध्यात्मिक विषयों पर आपका मार्गदर्शन करने के लिए यहाँ हूँ। आप मुझसे अपने जीवन की समस्याओं या शास्त्रों से संबंधित कोई भी प्रश्न पूछ सकते हैं। मैं आपकी किस प्रकार सहायता करूँ?";
-    }
-
-    if (
-      cleanMsg.includes("who are you") || 
-      cleanMsg.includes("who is ai guru") || 
-      cleanMsg.includes("introduce yourself") ||
-      cleanMsg.includes("तुम कौन हो") || 
-      cleanMsg.includes("कौन हो") || 
-      cleanMsg.includes("अपना परिचय")
-    ) {
-      return "प्रणाम! 🙏 मैं हरि पाठशाला का 'AI गुरु' (आध्यात्मिक सहायक) हूँ। मेरा ध्येय सनातन धर्म के ग्रंथों (जैसे भगवद्गीता, रामचरितमानस, उपनिषद) के दिव्य ज्ञान को अत्यंत सरल और व्यावहारिक रूप में आप तक पहुँचाना है। आप मुझसे जीवन की चुनौतियों, मानसिक शांति, ध्यान, भक्ति और नैतिक मूल्यों पर चर्चा कर सकते हैं।";
-    }
-
-    if (
-      cleanMsg.includes("how can you help") || 
-      cleanMsg.includes("what can you do") || 
-      cleanMsg.includes("तुम क्या कर सकते हो") || 
-      cleanMsg.includes("मेरी मदद कैसे")
-    ) {
-      return "मैं आपकी कई प्रकार से सहायता कर सकता हूँ:\n\n1. **शास्त्रों का ज्ञान**: भगवद्गीता, रामचरितमानस, वेदों और उपनिषदों के श्लोकों और चौपाइयों का अर्थ व व्याख्या।\n2. **जीवन की समस्याओं का समाधान**: मानसिक तनाव, निर्णय लेने में असमंजस, आत्मविश्वास की कमी, और रिश्तों में सुधार के लिए आध्यात्मिक मार्गदर्शन।\n3. **भक्ति और साधना**: मंत्र जाप, ध्यान (Meditation), और दैनिक साधना की सही विधि।\n4. **नैतिक एवं नैतिक मूल्य**: जीवन में सकारात्मकता, सदाचार, और चरित्र निर्माण के उपाय।\n\nआप मुझसे बेझिझक कोई भी आध्यात्मिक या जीवन से जुड़ा प्रश्न पूछ सकते हैं।";
-    }
-
-    if (
-      cleanMsg.includes("hari pathshala") || 
-      cleanMsg.includes("हरि पाठशाला") || 
-      cleanMsg.includes("website") || 
-      cleanMsg.includes("instagram")
-    ) {
-      return "हरि पाठशाला (Hari Pathshala) एक अग्रणी आध्यात्मिक शैक्षणिक मंच है जिसका उद्देश्य सनातन धर्म के अमूल्य ज्ञान को आधुनिक पीढ़ी के लिए सुलभ और बोधगम्य बनाना है।\n\n- **आधिकारिक वेबसाइट**: [haripathshala.online](https://haripathshala.online)\n- **इंस्टाग्राम**: [@hari_pathshala](https://instagram.com/hari_pathshala)\n\nहमसे जुड़ने के लिए और दैनिक आध्यात्मिक ज्ञान प्राप्त करने के लिए आप हमारी वेबसाइट पर जा सकते हैं या इंस्टाग्राम पर हमें फॉलो कर सकते हैं। राधे राधे! 🙏";
-    }
-
-    return null;
-  }
 
   // Scripture Verse Retrieval & Background Generation API
   app.post("/api/scripture/verse", async (req, res) => {
@@ -2487,9 +2483,9 @@ CONTENT MODERATION (STRICT)
       }
 
       // 2. Generate support material with AI in background if missing
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = getValidGeminiApiKey("ai_scripture");
       if (!apiKey) {
-        return res.status(500).json({ error: "Gemini API Key is not configured." });
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -2589,9 +2585,9 @@ Return ONLY a valid JSON object matching this exact schema:
       }
 
       // 2. Generate study material with AI in background if missing
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = getValidGeminiApiKey("ai_scripture");
       if (!apiKey) {
-        return res.status(500).json({ error: "Gemini API Key is not configured." });
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -2756,8 +2752,8 @@ Return ONLY a valid JSON object matching this exact schema:
       const shippingData = (shippingConfigDoc && shippingConfigDoc.exists()) ? shippingConfigDoc.data() : {};
       
       // Live Shiprocket settings
-      const email = shippingData.shiprocketEmail || process.env.SHIPROCKET_EMAIL || "";
-      const password = shippingData.shiprocketPassword || process.env.SHIPROCKET_PASSWORD || "";
+      const email = shippingData.shiprocketEmail || process.env.SHIPROCKET_EMAIL || "swamiajay9783@gmail.com";
+      const password = shippingData.shiprocketPassword || process.env.SHIPROCKET_PASSWORD || "$p0FvTP%8fa6PItUtHcKCtkm&JW2wbL%";
       
       const isLiveShiprocket = email && password && !email.includes("example.com") && !email.includes("placeholder");
 
@@ -2907,38 +2903,26 @@ Return ONLY a valid JSON object matching this exact schema:
         console.warn("Failed to fetch payment settings from Firestore, using env vars:", err);
       }
       
-      let mode = 'test';
-      let key_id = process.env.RAZORPAY_TEST_KEY_ID || '';
-      let key_secret = process.env.RAZORPAY_TEST_KEY_SECRET || '';
-
-      const liveKeyId = process.env.RAZORPAY_LIVE_KEY_ID || process.env.VITE_RAZORPAY_KEY || '';
-      const liveKeySecret = process.env.RAZORPAY_LIVE_KEY_SECRET || '';
-      const hasValidLiveKeys = liveKeyId && liveKeySecret;
-
+      const liveKeyId = process.env.RAZORPAY_LIVE_KEY_ID || process.env.VITE_RAZORPAY_KEY || "rzp_live_TIBLCjw9jrdW83";
+      const liveKeySecret = process.env.RAZORPAY_LIVE_KEY_SECRET || "6k39BFz5Vth27HFZNxR7191t";
+      let mode = 'live';
+      let key_id = liveKeyId;
+      let key_secret = liveKeySecret;
 
       if (configDoc && configDoc.exists()) {
         const data = configDoc.data();
         
-        // Auto Mode Detection Logic
-        const isLiveMode = data.enabled === true && data.onlinePayment === true && data.testMode === false && typeof data.keyId === 'string' && data.keyId.startsWith('rzp_live_');
-        
-        if (isLiveMode) {
-          mode = 'live';
+        if (typeof data.keyId === 'string' && data.keyId.trim().length > 0) {
           key_id = data.keyId;
-          key_secret = data.keySecret || liveKeySecret || '';
-        } else {
-          mode = 'test';
-          key_id = (data.testMode === true || (typeof data.keyId === 'string' && data.keyId.startsWith('rzp_test_'))) ? data.keyId : (process.env.RAZORPAY_TEST_KEY_ID || '');
-          key_secret = data.keySecret || process.env.RAZORPAY_TEST_KEY_SECRET || '';
+          key_secret = data.keySecret || liveKeySecret;
+          mode = key_id.startsWith('rzp_live_') ? 'live' : 'test';
         }
-      } else if (hasValidLiveKeys) {
-        mode = 'live';
-        key_id = liveKeyId;
-        key_secret = liveKeySecret;
       }
 
       if (!key_id || !key_secret) {
-        return res.status(400).json({ error: "Payment configuration is incomplete. Please try again later or contact support." });
+        key_id = liveKeyId;
+        key_secret = liveKeySecret;
+        mode = 'live';
       }
 
       const rzp = new Razorpay({ key_id, key_secret });
@@ -2981,34 +2965,17 @@ Return ONLY a valid JSON object matching this exact schema:
         console.warn("Failed to fetch payment settings, using env vars:", err);
       }
       
-      let mode = 'test';
-      let key_id = process.env.RAZORPAY_TEST_KEY_ID || '';
-      let key_secret = process.env.RAZORPAY_TEST_KEY_SECRET || '';
-
-      const liveKeySecret = process.env.RAZORPAY_LIVE_KEY_SECRET;
-      const liveKeyId = process.env.RAZORPAY_LIVE_KEY_ID;
-      const hasValidLiveKeys = liveKeyId && liveKeySecret && liveKeyId && liveKeySecret;
-
+      const liveKeyId = process.env.RAZORPAY_LIVE_KEY_ID || process.env.VITE_RAZORPAY_KEY || "rzp_live_TIBLCjw9jrdW83";
+      const liveKeySecret = process.env.RAZORPAY_LIVE_KEY_SECRET || "6k39BFz5Vth27HFZNxR7191t";
+      let key_id = liveKeyId;
+      let key_secret = liveKeySecret;
 
       if (configDoc && configDoc.exists()) {
         const data = configDoc.data();
-        
-        // Auto Mode Detection Logic
-        const isLiveMode = data.enabled === true && data.onlinePayment === true && data.testMode === false && typeof data.keyId === 'string' && data.keyId.startsWith('rzp_live_');
-        
-        if (isLiveMode) {
-          mode = 'live';
+        if (typeof data.keyId === 'string' && data.keyId.trim().length > 0) {
           key_id = data.keyId;
-          key_secret = data.keySecret || liveKeySecret || '';
-        } else {
-          mode = 'test';
-          key_id = (data.testMode === true || (typeof data.keyId === 'string' && data.keyId.startsWith('rzp_test_'))) ? data.keyId : (process.env.RAZORPAY_TEST_KEY_ID || '');
-          key_secret = data.keySecret || process.env.RAZORPAY_TEST_KEY_SECRET || '';
+          key_secret = data.keySecret || liveKeySecret;
         }
-      } else if (hasValidLiveKeys) {
-        mode = 'live';
-        key_id = liveKeyId;
-        key_secret = liveKeySecret;
       }
 
       let isValid = false;
@@ -3078,7 +3045,7 @@ Return ONLY a valid JSON object matching this exact schema:
         paymentStatus: isCod ? 'Pending' : 'Paid', // Ensure paymentStatus is Paid only after successful verification
         deliveryStatus: 'Pending',
         createdAt: serverTimestamp(),
-        paymentMode: isCod ? 'cod' : mode,
+        paymentMode: isCod ? 'cod' : (orderData?.paymentMethod || 'online'),
         total: orderData.totalAmount || orderData.subtotal || 0,
         invoiceNumber,
         invoiceUrl
@@ -3093,8 +3060,8 @@ Return ONLY a valid JSON object matching this exact schema:
       }
       const shippingData = (shippingDoc && shippingDoc.exists()) ? shippingDoc.data() : {};
       
-      const email = shippingData.shiprocketEmail || process.env.SHIPROCKET_EMAIL || "";
-      const password = shippingData.shiprocketPassword || process.env.SHIPROCKET_PASSWORD || "";
+      const email = shippingData.shiprocketEmail || process.env.SHIPROCKET_EMAIL || "swamiajay9783@gmail.com";
+      const password = shippingData.shiprocketPassword || process.env.SHIPROCKET_PASSWORD || "$p0FvTP%8fa6PItUtHcKCtkm&JW2wbL%";
       
       let trackingNumber = '';
       let courierName = '';
@@ -3115,138 +3082,204 @@ Return ONLY a valid JSON object matching this exact schema:
       );
 
       if (isLiveShiprocket) {
-        console.log("[Shiprocket API] Executing LIVE order creation");
+        console.log("[Shiprocket API] Executing LIVE order creation on Shiprocket API v2...");
         try {
           const token = await getShiprocketToken(email, password);
           
-          // Determine package details
+          // 1. Fetch valid registered pickup location from Shiprocket
+          let resolvedPickupLocation = shippingData.pickupLocation || "";
+          try {
+            console.log("[Shiprocket API] Querying registered pickup locations...");
+            const pickupLocRes = await axios.get('https://apiv2.shiprocket.in/v1/external/settings/company/pickup', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const pickupAddresses = pickupLocRes?.data?.data?.shipping_address || pickupLocRes?.data?.shipping_address || [];
+            if (Array.isArray(pickupAddresses) && pickupAddresses.length > 0) {
+              const match = pickupAddresses.find((p: any) => 
+                p.pickup_location?.toLowerCase() === resolvedPickupLocation.toLowerCase() ||
+                p.pickup_location_name?.toLowerCase() === resolvedPickupLocation.toLowerCase()
+              );
+              if (match) {
+                resolvedPickupLocation = match.pickup_location || match.pickup_location_name;
+              } else if (pickupAddresses[0]?.pickup_location || pickupAddresses[0]?.pickup_location_name) {
+                resolvedPickupLocation = pickupAddresses[0].pickup_location || pickupAddresses[0].pickup_location_name;
+              }
+            }
+          } catch (pLocErr: any) {
+            console.warn("[Shiprocket API] Dynamic pickup location check failed, using config location:", pLocErr?.message);
+          }
+          if (!resolvedPickupLocation) {
+            resolvedPickupLocation = "Primary";
+          }
+          console.log(`[Shiprocket API] Using resolved pickup location: '${resolvedPickupLocation}'`);
+
+          // 2. Determine package details & weight
           const packageLength = Number(shippingData.packageLength) || 10;
           const packageBreadth = Number(shippingData.packageBreadth) || 10;
           const packageHeight = Number(shippingData.packageHeight) || 10;
-          const packageWeight = Number(shippingData.packageWeight) || 0.5;
+          
+          let totalCartWeight = cart.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0.5) * (Number(item.quantity) || 1), 0);
+          const packageWeight = Math.max(0.1, Number(shippingData.packageWeight) || totalCartWeight || 0.5);
+
+          // 3. Formatter for Shiprocket Order Date (Format: YYYY-MM-DD HH:mm)
+          const now = new Date();
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const formattedOrderDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+          // 4. Calculate Subtotal, Shipping Fee, and Discounts
+          const calculatedSubtotal = cart.reduce((sum: number, item: any) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+          const calculatedShippingFee = Number(orderData.shippingFee || orderData.shippingCharge || orderData.shipping || 0);
+          const calculatedDiscount = Number(orderData.discount || 0);
+
+          // Customer Phone Number (10 digits)
+          const rawPhone = String(orderData.customerInfo?.mobile || orderData.shippingAddress?.mobile || "9999999999").replace(/\D/g, '');
+          const cleanPhone = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9999999999";
+
+          // Customer Full Name
+          const fullName = String(orderData.customerInfo?.fullName || orderData.shippingAddress?.fullName || "Valued Customer").trim();
+          const nameParts = fullName.split(' ');
+          const firstName = nameParts[0] || "Customer";
+          const lastName = nameParts.slice(1).join(' ') || ".";
 
           const srOrderPayload = {
-            order_id: newOrderRef.id,
-            order_date: new Date().toISOString(),
-            pickup_location: shippingData.pickupLocation || "Primary",
-            billing_customer_name: orderData.customerInfo?.fullName || orderData.shippingAddress?.fullName || "Customer",
-            billing_last_name: "",
-            billing_address: orderData.shippingAddress?.street || orderData.shippingAddress?.houseNo || "Main Road",
-            billing_address_2: orderData.shippingAddress?.landmark || "",
-            billing_city: orderData.shippingAddress?.city || "Jaipur",
-            billing_pincode: orderData.shippingAddress?.pincode || "303801",
-            billing_state: orderData.shippingAddress?.state || "Rajasthan",
+            order_id: humanOrderId || newOrderRef.id,
+            order_date: formattedOrderDate,
+            pickup_location: resolvedPickupLocation,
+            billing_customer_name: firstName,
+            billing_last_name: lastName,
+            billing_address: String(orderData.shippingAddress?.street || orderData.shippingAddress?.houseNo || orderData.shippingAddress?.address || "Main Road").trim(),
+            billing_address_2: String(orderData.shippingAddress?.landmark || orderData.shippingAddress?.area || "").trim(),
+            billing_city: String(orderData.shippingAddress?.city || "Jaipur").trim(),
+            billing_pincode: String(orderData.shippingAddress?.pincode || "303801").replace(/\D/g, ''),
+            billing_state: String(orderData.shippingAddress?.state || "Rajasthan").trim(),
             billing_country: "India",
-            billing_email: orderData.customerInfo?.email || "customer@example.com",
-            billing_phone: orderData.customerInfo?.mobile || orderData.shippingAddress?.mobile || "9999999999",
+            billing_email: String(orderData.customerInfo?.email || "customer@haripathshala.com").trim(),
+            billing_phone: cleanPhone,
             shipping_is_billing: true,
-            order_items: cart.map((item: any) => ({
-               name: item.title,
-               sku: item.productId || item.id,
-               units: item.quantity,
-               selling_price: item.price
+            order_items: cart.map((item: any, idx: number) => ({
+              name: String(item.title || item.name || `Item ${idx + 1}`).trim(),
+              sku: String(item.productId || item.id || `SKU-${idx + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_'),
+              units: Number(item.quantity) || 1,
+              selling_price: Number(item.price) || 0,
+              discount: 0,
+              tax: 0
             })),
             payment_method: isCod ? "COD" : "Prepaid",
-            sub_total: orderData.totalAmount || orderData.subtotal || 0,
+            sub_total: calculatedSubtotal,
+            shipping_charges: calculatedShippingFee,
+            total_discount: calculatedDiscount,
             length: packageLength,
             breadth: packageBreadth,
             height: packageHeight,
             weight: packageWeight
           };
 
+          console.log("[Shiprocket API] Sending Create Order Payload:", JSON.stringify(srOrderPayload));
+
           const createOrderRes = await axios.post('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', srOrderPayload, {
-             headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` }
           });
           
-          if (createOrderRes.data && createOrderRes.data.shipment_id) {
+          console.log("[Shiprocket API] Create Order Response:", JSON.stringify(createOrderRes.data));
+
+          if (createOrderRes.data && (createOrderRes.data.shipment_id || createOrderRes.data.order_id)) {
             shiprocketOrderId = String(createOrderRes.data.order_id || "");
             shiprocketShipmentId = String(createOrderRes.data.shipment_id || "");
             
-            // Query serviceability first to find the cheapest courier company id
+            // Query serviceability to assign the best courier
             const pickupPincode = shippingData.pickupPincode || "303801";
-            let courierId = undefined;
+            let courierId: number | undefined = undefined;
             try {
+              console.log(`[Shiprocket API] Querying courier serviceability for shipment ${shiprocketShipmentId}...`);
               const courierRes = await axios.get(`https://apiv2.shiprocket.in/v1/external/courier/serviceability/?pickup_postcode=${pickupPincode}&delivery_postcode=${orderData.shippingAddress.pincode}&weight=${packageWeight}&cod=${isCod ? 1 : 0}`, {
                 headers: { Authorization: `Bearer ${token}` }
               });
               
-              if (courierRes.data && courierRes.data.data && courierRes.data.data.available_courier_companies && courierRes.data.data.available_courier_companies.length > 0) {
-                const couriers = courierRes.data.data.available_courier_companies;
-                const cheapest = couriers.reduce((prev: any, curr: any) => (prev.rate < curr.rate ? prev : curr));
-                courierId = cheapest.courier_company_id;
-                courierName = cheapest.courier_name || cheapest.name;
-                shippingFeeCalculated = Math.round(cheapest.rate);
-                estimatedDeliveryDate = cheapest.etd || cheapest.estimated_delivery_date || "";
+              const couriers = courierRes.data?.data?.available_courier_companies || [];
+              if (couriers.length > 0) {
+                const bestCourier = couriers.reduce((prev: any, curr: any) => (prev.rate < curr.rate ? prev : curr));
+                courierId = bestCourier.courier_company_id;
+                courierName = bestCourier.courier_name || bestCourier.name;
+                shippingFeeCalculated = Math.round(bestCourier.rate);
+                estimatedDeliveryDate = bestCourier.etd || bestCourier.estimated_delivery_date || "";
+                console.log(`[Shiprocket API] Best Courier Selected: ${courierName} (ID: ${courierId}, Rate: ₹${shippingFeeCalculated})`);
               }
-            } catch (cErr) {
-              console.warn("Failed to find cheapest courier, letting Shiprocket assign default:", cErr);
+            } catch (cErr: any) {
+              console.warn("[Shiprocket API] Serviceability lookup warning:", cErr?.response?.data || cErr?.message);
             }
 
             // Generate AWB and assign Courier
-            const awbPayload: any = { shipment_id: createOrderRes.data.shipment_id };
+            const awbPayload: any = { shipment_id: shiprocketShipmentId };
             if (courierId) {
               awbPayload.courier_id = courierId;
             }
             try {
+              console.log("[Shiprocket API] Assigning AWB with payload:", JSON.stringify(awbPayload));
               const awbRes = await axios.post('https://apiv2.shiprocket.in/v1/external/courier/assign/awb', awbPayload, {
-                 headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` }
               });
+              console.log("[Shiprocket API] AWB Assign Response:", JSON.stringify(awbRes.data));
 
-              if (awbRes.data && awbRes.data.response && awbRes.data.response.data) {
-                 trackingNumber = String(awbRes.data.response.data.awb_code || "");
-                 courierName = awbRes.data.response.data.courier_name || courierName || "";
-                 trackingUrl = `https://shiprocket.co/tracking/${trackingNumber}`;
+              const awbErrorDetail = awbRes.data?.response?.data?.awb_assign_error || 
+                                     awbRes.data?.message || 
+                                     (awbRes.data?.awb_assign_status === 0 ? "AWB Assign Failed" : null);
+
+              if (awbRes.data?.response?.data?.awb_code) {
+                trackingNumber = String(awbRes.data.response.data.awb_code);
+                courierName = awbRes.data.response.data.courier_name || courierName || "Shiprocket Express";
+                trackingUrl = `https://shiprocket.co/tracking/${trackingNumber}`;
+                console.log(`[Shiprocket API] SUCCESS: AWB Code generated: ${trackingNumber}`);
+              } else if (awbRes.data?.awb_code) {
+                trackingNumber = String(awbRes.data.awb_code);
+                trackingUrl = `https://shiprocket.co/tracking/${trackingNumber}`;
+              } else if (awbErrorDetail) {
+                console.warn("[Shiprocket API] AWB Assignment Pending/Warning:", awbErrorDetail);
+                finalOrderData.shiprocketAwbStatus = awbErrorDetail;
+              } else {
+                console.warn("[Shiprocket API] AWB Code not returned directly in response:", awbRes.data);
               }
             } catch (awbErr: any) {
-              console.warn("Failed to assign AWB via live API, creating simulated assignment:", awbErr.response?.data || awbErr.message);
-              trackingNumber = "9876" + Math.floor(10000000 + Math.random() * 90000000);
-              courierName = courierName || "Delhivery";
-              trackingUrl = `https://shiprocket.co/tracking/${trackingNumber}`;
+              const awbErrMsg = awbErr.response?.data?.message || JSON.stringify(awbErr.response?.data) || awbErr.message;
+              console.error("[Shiprocket API Error] AWB Assignment Failed:", awbErrMsg);
             }
 
             // Generate Shipping Label
             try {
               const labelRes = await axios.post('https://apiv2.shiprocket.in/v1/external/courier/generate/label', {
-                shipment_id: [createOrderRes.data.shipment_id]
+                shipment_id: [shiprocketShipmentId]
               }, {
                 headers: { Authorization: `Bearer ${token}` }
               });
               if (labelRes.data && labelRes.data.label_url) {
                 labelUrl = labelRes.data.label_url;
+                console.log(`[Shiprocket API] Label Generated: ${labelUrl}`);
               }
-            } catch (lErr) {
-              console.warn("Failed to generate label:", lErr);
+            } catch (lErr: any) {
+              console.warn("[Shiprocket API] Label generation warning:", lErr?.response?.data || lErr?.message);
             }
 
             // Schedule Pickup
             try {
               await axios.post('https://apiv2.shiprocket.in/v1/external/courier/generate/pickup', {
-                shipment_id: [createOrderRes.data.shipment_id]
+                shipment_id: [shiprocketShipmentId]
               }, {
                 headers: { Authorization: `Bearer ${token}` }
               });
-            } catch (pErr) {
-              console.warn("Failed to schedule pickup:", pErr);
+              console.log("[Shiprocket API] Pickup scheduled successfully.");
+            } catch (pErr: any) {
+              console.warn("[Shiprocket API] Pickup schedule warning:", pErr?.response?.data || pErr?.message);
             }
           }
         } catch (srErr: any) {
-          console.error("Live Shiprocket Integration failed, falling back to simulation:", srErr.response?.data || srErr.message);
-          // Fallback to simulation within live mode if API is down
-          shiprocketOrderId = "SR-LIVE-ERR-" + Math.floor(Math.random() * 1000000);
-          shiprocketShipmentId = "SR-SHIP-ERR-" + Math.floor(Math.random() * 1000000);
-          trackingNumber = "9876" + Math.floor(10000000 + Math.random() * 90000000);
-          courierName = "Delhivery (Simulated Fallback)";
-          trackingUrl = `https://shiprocket.co/tracking/${trackingNumber}`;
-          estimatedDeliveryDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN');
+          const srErrorMsg = srErr.response?.data?.message || 
+                             (typeof srErr.response?.data === 'object' ? JSON.stringify(srErr.response?.data) : null) || 
+                             srErr.message;
+          console.error("[Shiprocket API Failure] Live order creation error:", srErrorMsg);
+          finalOrderData.shiprocketError = srErrorMsg;
+          finalOrderData.shiprocketStatus = "Error: " + srErrorMsg;
         }
       } else {
-        console.log("[Shiprocket API] Executing TEST order simulation");
-        shiprocketOrderId = "SR-TEST-" + Math.floor(Math.random() * 1000000);
-        shiprocketShipmentId = "SR-SHIP-TEST-" + Math.floor(Math.random() * 1000000);
-        trackingNumber = "987654" + Math.floor(100000 + Math.random() * 900000);
-        courierName = "Delhivery (Simulated)";
-        trackingUrl = `https://shiprocket.co/tracking/${trackingNumber}`;
-        estimatedDeliveryDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN');
+        console.log("[Shiprocket API] Shiprocket not configured or inactive.");
       }
 
       finalOrderData.trackingNumber = trackingNumber;
@@ -3326,7 +3359,7 @@ Return ONLY a valid JSON object matching this exact schema:
     } = req.body || {};
 
     try {
-      let apiKey = process.env.FREEASTROAPI_KEY || "1a8a3f8e21799e9c562165708555d21c4b8b85e00817d71cf3ad4b4be622ffc0";
+      let apiKey = process.env.FREE_ASTRO_API_KEY || process.env.FREEASTROAPI_KEY || "abc6bcfd78f7472de7e3cdeeb4e8d0ed90cde5ab05e4ae95448b502989db9c15";
       try {
         const configDocRef = doc(db, "api_config", "panchang");
         const configDocSnap = await getDoc(configDocRef);
@@ -3338,7 +3371,7 @@ Return ONLY a valid JSON object matching this exact schema:
         } else {
           // Seed the database with the correct key provided by user
           await setDoc(configDocRef, {
-            apiKey: "1a8a3f8e21799e9c562165708555d21c4b8b85e00817d71cf3ad4b4be622ffc0",
+            apiKey: "abc6bcfd78f7472de7e3cdeeb4e8d0ed90cde5ab05e4ae95448b502989db9c15",
             provider: "FreeAstroAPI",
             updatedAt: serverTimestamp()
           });
@@ -3434,7 +3467,7 @@ Return ONLY a valid JSON object matching this exact schema:
   });
 
   async function preGenerateChapterQuestions(subjectId: string, chapterId: string, chapterName: string, selectedLang: string) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getValidGeminiApiKey("ai_quiz");
     if (!apiKey) return;
 
     const ai = new GoogleGenAI({ apiKey });
@@ -3612,9 +3645,9 @@ Return ONLY a valid JSON object matching this exact schema:
         }
       } else {
         console.log(`[AI Chapters] Generating chapters via Gemini for subjectId=${cleanSubjectId}`);
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = getValidGeminiApiKey("ai_scripture");
         if (!apiKey) {
-          return res.status(500).json({ error: "Gemini API Key is not configured." });
+          return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
         }
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `You are a world-class scholar of Sanatan Dharma and Vedic literature.
@@ -3708,7 +3741,7 @@ Respond ONLY with a JSON object matching this exact schema:
   // Helper for background generation of exactly 25 questions with 10 Easy, 10 Medium, 5 Hard difficulty distribution
   async function generateAndSaveQuestionsBackground(subjectId: string, chapterId: string, chapterName: string, selectedLang: string, force = false, lessonId = "") {
     const statusId = lessonId ? `${subjectId}_${chapterId}_${lessonId}_${selectedLang}` : `${subjectId}_${chapterId}_${selectedLang}`;
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getValidGeminiApiKey("ai_quiz");
     if (!apiKey) {
       await setDoc(doc(db, 'quiz_generation_status', statusId), {
         id: statusId,
@@ -3926,20 +3959,38 @@ You MUST respond ONLY with a JSON object matching this exact schema:
 
   app.post("/api/quiz/pre-generate", async (req, res) => {
     try {
-      const { userId, subjectId } = req.body;
+      let { userId, subjectId } = req.body;
       if (!userId || !subjectId) {
         return res.status(400).json({ error: "userId and subjectId are required." });
+      }
+
+      // 1. Enforce use only existing subjects
+      if (subjectId !== 'ai_mixed') {
+        const subDoc = await getDoc(doc(db, 'quiz_subjects', subjectId));
+        if (!subDoc.exists()) {
+          console.warn(`[AI Subject Check] Subject ID ${subjectId} does not exist in quiz_subjects. Defaulting to 'ai_mixed'.`);
+          subjectId = 'ai_mixed';
+        }
+      }
+
+      // 2. Enforce: Do not regenerate if a ready cache already exists for this user and subject!
+      const cacheId = `${userId}_${subjectId}`;
+      const cacheSnap = await getDoc(doc(db, 'quiz_ai_cache', cacheId));
+      if (cacheSnap.exists() && cacheSnap.data().status === 'ready') {
+        console.log(`[AI Quiz Cache] Ready cache already exists for userId=${userId}, subjectId=${subjectId}. Skipping regeneration.`);
+        return res.json({ status: "ready" });
       }
 
       // Send early response so it's fully asynchronous & non-blocking
       res.json({ status: "processing" });
 
       // Run background generator
+      const targetSubject = subjectId;
       (async () => {
         try {
-          console.log(`[AI Quiz Cache] Starting background pre-generation for userId=${userId}, subjectId=${subjectId}`);
-          await generateNextQuizToCache(userId, subjectId);
-          console.log(`[AI Quiz Cache] Background pre-generation completed for userId=${userId}, subjectId=${subjectId}`);
+          console.log(`[AI Quiz Cache] Starting background pre-generation for userId=${userId}, subjectId=${targetSubject}`);
+          await generateNextQuizToCache(userId, targetSubject);
+          console.log(`[AI Quiz Cache] Background pre-generation completed for userId=${userId}, subjectId=${targetSubject}`);
         } catch (err) {
           console.error("[AI Quiz Cache] Background pre-generation failed:", err);
         }
@@ -3962,7 +4013,7 @@ You MUST respond ONLY with a JSON object matching this exact schema:
 
   // Automatic question bank expansion with quality validation
   async function expandQuestionBankForChapter(subjectId: string, chapterId: string, language: string): Promise<any[]> {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getValidGeminiApiKey("ai_quiz");
     if (!apiKey) return [];
 
     const ai = new GoogleGenAI({ apiKey });
@@ -4099,9 +4150,9 @@ Return ONLY a valid JSON object matching this schema:
         return res.json({ quiz: synthesizedQuiz, questions });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = getValidGeminiApiKey("ai_quiz");
       if (!apiKey) {
-        return res.status(500).json({ error: "Gemini API Key is not configured." });
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
       }
 
       const todayStr = new Date().toLocaleDateString('en-CA');
@@ -4407,9 +4458,9 @@ Return ONLY a valid JSON object matching this schema:
         return res.json({ questions: [] });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = getValidGeminiApiKey("ai_quiz");
       if (!apiKey) {
-        return res.status(500).json({ error: "GEMINI_API_KEY is not configured." });
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
       }
 
       const extra = await generateExtraQuestions(quizId, subjectId, quizName, needed, existingQuestions || []);
@@ -4585,7 +4636,7 @@ Return ONLY a valid JSON object matching this schema:
 
   // Scripture Question Generator (Permanently Saved)
   async function preGenerateScriptureQuestions(subjectId: string, chapterId: string, chapterName: string, selectedLang: string) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getValidGeminiApiKey("ai_quiz");
     if (!apiKey) return [];
 
     const ai = new GoogleGenAI({ apiKey });
@@ -4756,7 +4807,7 @@ Return ONLY a valid JSON object matching this schema:
       recoveryCodeSnippet: ""
     };
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getValidGeminiApiKey();
     if (apiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey });
@@ -4848,9 +4899,9 @@ Return ONLY a valid JSON object matching this schema:
         }));
       } else {
         // Generate via Gemini
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = getValidGeminiApiKey("ai_scripture");
         if (!apiKey) {
-          return res.status(500).json({ error: "Gemini API Key is not configured." });
+          return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
         }
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `You are a world-class scholar of Vedic literature.
@@ -5950,8 +6001,8 @@ async function seedDohasIfEmpty() {
 startServer();
 
 async function generateNextQuizToCache(userId: string, subjectId: string) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Gemini API key is missing");
+  const apiKey = getValidGeminiApiKey("ai_quiz");
+  if (!apiKey) throw new Error("GEMINI_API_KEY environment variable is missing or invalid");
 
   // 1. Fetch user history to adapt difficulty and avoid duplicates
   const historyRef = collection(db, 'userStats', userId, 'quiz_history');
@@ -6147,7 +6198,7 @@ Return ONLY a valid JSON object matching this exact schema:
 }
 
 async function generateExtraQuestions(quizId: string, subjectId: string, quizName: string, count: number, existingTexts: string[]) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getValidGeminiApiKey("ai_quiz");
   if (!apiKey) return [];
   try {
     const ai = new GoogleGenAI({ apiKey });
